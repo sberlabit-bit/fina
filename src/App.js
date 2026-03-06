@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 
-// ─── Data ────────────────────────────────────────────────────────────────────
+// ─── Default Categories ───────────────────────────────────────────────────────
 
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   { name: "Food", icon: "🍔", color: "#FF6B6B", budget: 500 },
   { name: "Transport", icon: "🚗", color: "#4ECDC4", budget: 200 },
   { name: "Shopping", icon: "🛍️", color: "#FFD93D", budget: 300 },
@@ -28,17 +28,23 @@ const SAMPLE = [
   { id: 12, category: "Fun", name: "Cinema", amount: 22.0, date: "2026-02-08" },
 ];
 
+const PRESET_COLORS = ["#FF6B6B","#4ECDC4","#FFD93D","#95E1D3","#F38181","#74B9FF","#A29BFE","#FD79A8","#55EFC4","#FDCB6E","#E17055","#81ECEC"];
+const PRESET_EMOJIS = ["🍔","🚗","🛍️","💊","🎮","💡","📦","✈️","🏠","🎓","💼","🐾","🎵","📱","🏋️","🍕","☕","🎁","💈","🌿"];
+
 const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [page, setPage] = useState("landing"); // landing | app
+  const [page, setPage] = useState("landing");
   const [dark, setDark] = useState(true);
   const [tab, setTab] = useState("dashboard");
   const [transactions, setTransactions] = useState(() => {
     try { const s = localStorage.getItem("budget_txns"); return s ? JSON.parse(s) : SAMPLE; } catch { return SAMPLE; }
+  });
+  const [categories, setCategories] = useState(() => {
+    try { const s = localStorage.getItem("budget_cats"); return s ? JSON.parse(s) : DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; }
   });
   const [form, setForm] = useState({ name: "", amount: "", category: "Food", date: new Date().toISOString().split("T")[0] });
   const [toast, setToast] = useState(null);
@@ -46,6 +52,10 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("budget_txns", JSON.stringify(transactions)); } catch {}
   }, [transactions]);
+
+  useEffect(() => {
+    try { localStorage.setItem("budget_cats", JSON.stringify(categories)); } catch {}
+  }, [categories]);
 
   function showToast(msg, type = "success") {
     setToast({ msg, type });
@@ -56,8 +66,8 @@ export default function App() {
     if (!form.name.trim() || !form.amount) return showToast("Please fill in all fields", "error");
     const t = { id: Date.now(), ...form, amount: parseFloat(form.amount) };
     setTransactions([t, ...transactions]);
-    setForm({ name: "", amount: "", category: "Food", date: new Date().toISOString().split("T")[0] });
-    showToast("Expense added!");
+    setForm({ name: "", amount: "", category: categories[0]?.name || "Other", date: new Date().toISOString().split("T")[0] });
+    showToast("Expense added! ✓");
   }
 
   function deleteTransaction(id) {
@@ -65,13 +75,23 @@ export default function App() {
     showToast("Deleted");
   }
 
-  const totalBudget = CATEGORIES.reduce((s, c) => s + c.budget, 0);
+  function addCategory(cat) {
+    if (categories.find((c) => c.name.toLowerCase() === cat.name.toLowerCase())) return showToast("Category already exists", "error");
+    setCategories([...categories, cat]);
+    showToast(`${cat.icon} ${cat.name} added!`);
+  }
+
+  function deleteCategory(name) {
+    setCategories(categories.filter((c) => c.name !== name));
+    showToast("Category removed");
+  }
+
+  const totalBudget = categories.reduce((s, c) => s + c.budget, 0);
   const totalSpent = transactions.reduce((s, t) => s + t.amount, 0);
-  const spentByCategory = CATEGORIES.map((c) => ({
+  const spentByCategory = categories.map((c) => ({
     ...c, spent: transactions.filter((t) => t.category === c.name).reduce((s, t) => s + t.amount, 0),
   }));
 
-  // chart data
   const lineData = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
     const ds = d.toISOString().split("T")[0];
@@ -101,7 +121,6 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: th.bg, fontFamily: "'DM Sans', sans-serif", color: th.text, transition: "background 0.3s, color 0.3s" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
 
-      {/* Toast */}
       {toast && (
         <div style={{
           position: "fixed", top: 24, right: 24, zIndex: 9999,
@@ -115,10 +134,12 @@ export default function App() {
       <style>{`
         @keyframes slideIn { from { opacity:0; transform:translateX(20px) } to { opacity:1; transform:translateX(0) } }
         @keyframes fadeUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.95) } to { opacity:1; transform:scale(1) } }
         ::-webkit-scrollbar { width: 4px } ::-webkit-scrollbar-track { background: transparent }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px }
         * { box-sizing: border-box; margin: 0; padding: 0 }
         input, select { font-family: inherit }
+        button:hover { opacity: 0.85 }
       `}</style>
 
       {/* Sidebar */}
@@ -129,7 +150,7 @@ export default function App() {
         transition: "background 0.3s",
       }}>
         <div style={{ marginBottom: 40, paddingLeft: 8 }}>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800, color: th.accent, letterSpacing: -0.5 }}>Fina</div>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, color: th.accent, letterSpacing: -0.5 }}>Fina</div>
           <div style={{ fontSize: 11, color: th.muted, fontWeight: 500, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Budget Tracker</div>
         </div>
 
@@ -138,6 +159,7 @@ export default function App() {
           { id: "transactions", icon: "⊟", label: "Transactions" },
           { id: "budget", icon: "◎", label: "Budget" },
           { id: "add", icon: "+", label: "Add Expense" },
+          { id: "categories", icon: "⊞", label: "Categories" },
         ].map((item) => (
           <button key={item.id} onClick={() => setTab(item.id)} style={{
             display: "flex", alignItems: "center", gap: 12,
@@ -145,7 +167,7 @@ export default function App() {
             background: tab === item.id ? th.accentSoft : "transparent",
             border: "none", cursor: "pointer", color: tab === item.id ? th.accent : th.muted,
             fontSize: 14, fontWeight: tab === item.id ? 600 : 500,
-            transition: "all 0.15s", textAlign: "left",
+            transition: "all 0.15s", textAlign: "left", width: "100%",
           }}>
             <span style={{ fontSize: 18, width: 22 }}>{item.icon}</span>
             {item.label}
@@ -153,7 +175,6 @@ export default function App() {
         ))}
 
         <div style={{ marginTop: "auto" }}>
-          {/* Dark/Light Toggle */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: th.surface2, borderRadius: 12 }}>
             <span style={{ fontSize: 13, color: th.muted, fontWeight: 500 }}>{dark ? "🌙 Dark" : "☀️ Light"}</span>
             <div onClick={() => setDark(!dark)} style={{
@@ -172,8 +193,7 @@ export default function App() {
           <button onClick={() => setPage("landing")} style={{
             width: "100%", marginTop: 8, padding: "10px 14px",
             background: "transparent", border: "none", cursor: "pointer",
-            color: th.muted, fontSize: 13, fontWeight: 500, textAlign: "left",
-            borderRadius: 12,
+            color: th.muted, fontSize: 13, fontWeight: 500, textAlign: "left", borderRadius: 12,
           }}>← Back to Home</button>
         </div>
       </div>
@@ -181,15 +201,16 @@ export default function App() {
       {/* Main */}
       <div style={{ marginLeft: 260, padding: "36px 40px", minHeight: "100vh", animation: "fadeUp 0.4s ease" }}>
         {tab === "dashboard" && <Dashboard th={th} totalBudget={totalBudget} totalSpent={totalSpent} spentByCategory={spentByCategory} lineData={lineData} barData={barData} pieData={pieData} transactions={transactions} />}
-        {tab === "transactions" && <Transactions th={th} transactions={transactions} deleteTransaction={deleteTransaction} />}
+        {tab === "transactions" && <Transactions th={th} transactions={transactions} deleteTransaction={deleteTransaction} categories={categories} />}
         {tab === "budget" && <Budget th={th} spentByCategory={spentByCategory} />}
-        {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} />}
+        {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} categories={categories} setTab={setTab} />}
+        {tab === "categories" && <Categories th={th} categories={categories} addCategory={addCategory} deleteCategory={deleteCategory} showToast={showToast} />}
       </div>
     </div>
   );
 }
 
-// ─── Landing ─────────────────────────────────────────────────────────────────
+// ─── Landing ──────────────────────────────────────────────────────────────────
 
 function Landing({ dark, setDark, th, onStart }) {
   return (
@@ -197,57 +218,36 @@ function Landing({ dark, setDark, th, onStart }) {
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
       <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } } * { box-sizing:border-box; margin:0; padding:0 }`}</style>
 
-      {/* Nav */}
       <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "24px 60px", borderBottom: `1px solid ${th.border}` }}>
-        <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, color: th.accent }}>Fina</div>
+        <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800, color: th.accent }}>Fina</div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <div onClick={() => setDark(!dark)} style={{
-            width: 44, height: 24, borderRadius: 12,
-            background: dark ? th.accent : "#ddd",
-            position: "relative", cursor: "pointer", transition: "background 0.3s",
-          }}>
+          <div onClick={() => setDark(!dark)} style={{ width: 44, height: 24, borderRadius: 12, background: dark ? th.accent : "#ddd", position: "relative", cursor: "pointer", transition: "background 0.3s" }}>
             <div style={{ position: "absolute", top: 2, left: dark ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left 0.3s" }} />
           </div>
-          <button onClick={onStart} style={{
-            background: th.accent, color: "#fff", border: "none", borderRadius: 12,
-            padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
-          }}>Open App →</button>
+          <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Open App →</button>
         </div>
       </nav>
 
-      {/* Hero */}
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "100px 40px 80px", animation: "fadeUp 0.6s ease" }}>
-        <div style={{ display: "inline-block", background: th.accentSoft, color: th.accent, borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 28 }}>
-          Free Budget Tracker
-        </div>
+        <div style={{ display: "inline-block", background: th.accentSoft, color: th.accent, borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 28 }}>Free Budget Tracker</div>
         <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(42px, 7vw, 80px)", fontWeight: 800, lineHeight: 1.05, letterSpacing: -2, marginBottom: 24, maxWidth: 700 }}>
-          Know where your<br />
-          <span style={{ color: th.accent }}>money goes.</span>
+          Know where your<br /><span style={{ color: th.accent }}>money goes.</span>
         </h1>
         <p style={{ fontSize: 18, color: th.muted, maxWidth: 480, lineHeight: 1.7, marginBottom: 44, fontWeight: 400 }}>
-          A clean, fast expense tracker with smart budgets, visual charts, and zero complexity. Built for people who actually want to save.
+          A clean, fast expense tracker with smart budgets, visual charts, and custom categories. Built for people who actually want to save.
         </p>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <button onClick={onStart} style={{
-            background: th.accent, color: "#fff", border: "none", borderRadius: 14,
-            padding: "16px 36px", fontSize: 16, fontWeight: 700, cursor: "pointer",
-            boxShadow: `0 8px 32px rgba(124,111,247,0.35)`,
-            transition: "transform 0.15s",
-          }}>Get Started — It's Free</button>
-          <button style={{
-            background: "transparent", color: th.text, border: `1.5px solid ${th.border}`,
-            borderRadius: 14, padding: "16px 36px", fontSize: 16, fontWeight: 600, cursor: "pointer",
-          }}>See Demo ↓</button>
+          <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 14, padding: "16px 36px", fontSize: 16, fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 32px rgba(124,111,247,0.35)" }}>Get Started — It's Free</button>
+          <button style={{ background: "transparent", color: th.text, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "16px 36px", fontSize: 16, fontWeight: 600, cursor: "pointer" }}>See Demo ↓</button>
         </div>
       </div>
 
-      {/* Features */}
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 40px 100px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
           {[
             { icon: "📊", title: "Visual Charts", desc: "Line, bar, and donut charts show exactly where your budget stands at a glance." },
+            { icon: "🏷️", title: "Custom Categories", desc: "Create your own spending categories with custom icons, colors and budget limits." },
             { icon: "💾", title: "Auto-Saved", desc: "Your data saves automatically in your browser. No account needed, no signup." },
-            { icon: "🎯", title: "Budget Goals", desc: "Set spending limits per category and get instant feedback when you're close." },
           ].map((f) => (
             <div key={f.title} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 28 }}>
               <div style={{ fontSize: 32, marginBottom: 14 }}>{f.icon}</div>
@@ -258,7 +258,6 @@ function Landing({ dark, setDark, th, onStart }) {
         </div>
       </div>
 
-      {/* Footer */}
       <div style={{ borderTop: `1px solid ${th.border}`, padding: "24px 60px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, color: th.accent }}>Fina</span>
         <span style={{ color: th.muted, fontSize: 13 }}>© 2026 · Built with Claude</span>
@@ -267,7 +266,7 @@ function Landing({ dark, setDark, th, onStart }) {
   );
 }
 
-// ─── Dashboard ───────────────────────────────────────────────────────────────
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, barData, pieData, transactions }) {
   const remaining = totalBudget - totalSpent;
@@ -275,15 +274,14 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
 
   return (
     <div>
-      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Dashboard</h1>
+      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Dashboard</h1>
       <p style={{ color: th.muted, fontSize: 14, marginBottom: 32 }}>March 2026 — Your financial overview</p>
 
-      {/* KPI Row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 28 }}>
         {[
           { label: "Total Budget", value: fmt(totalBudget), sub: "This month", color: th.accent },
           { label: "Total Spent", value: fmt(totalSpent), sub: `${pct.toFixed(0)}% of budget`, color: "#f0f0f0" },
-          { label: "Remaining", value: fmt(remaining), sub: remaining < 0 ? "Over budget!" : "Available", color: "#4ECDC4" },
+          { label: "Remaining", value: fmt(remaining), sub: remaining < 0 ? "Over budget!" : "Available", color: remaining < 0 ? "#FF6B6B" : "#4ECDC4" },
         ].map((k) => (
           <div key={k.label} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: "24px 28px" }}>
             <p style={{ color: th.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>{k.label}</p>
@@ -293,9 +291,7 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
         ))}
       </div>
 
-      {/* Charts Row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 28 }}>
-        {/* Line Chart */}
         <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 24 }}>
           <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Spending — Last 7 Days</p>
           <ResponsiveContainer width="100%" height={180}>
@@ -308,7 +304,6 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
           </ResponsiveContainer>
         </div>
 
-        {/* Donut */}
         <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 24 }}>
           <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Category Breakdown</p>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -320,7 +315,7 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
                 <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 10, fontSize: 13 }} />
               </PieChart>
             </ResponsiveContainer>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, overflowY: "auto", maxHeight: 180 }}>
               {pieData.map((d) => (
                 <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
@@ -333,7 +328,6 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
         </div>
       </div>
 
-      {/* Bar Chart */}
       <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 24, marginBottom: 28 }}>
         <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Monthly Comparison</p>
         <ResponsiveContainer width="100%" height={180}>
@@ -348,15 +342,14 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
         </ResponsiveContainer>
       </div>
 
-      {/* Recent */}
       <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 24 }}>
         <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Recent Transactions</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {transactions.slice(0, 5).map((t) => {
-            const cat = CATEGORIES.find((c) => c.name === t.category);
+            const cat = spentByCategory.find((c) => c.name === t.category);
             return (
               <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: `1px solid ${th.border}` }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: `${cat?.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{cat?.icon}</div>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: `${cat?.color || "#888"}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{cat?.icon || "📦"}</div>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</p>
                   <p style={{ color: th.muted, fontSize: 12, marginTop: 2 }}>{t.category} · {fmtDate(t.date)}</p>
@@ -373,24 +366,15 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
-function Transactions({ th, transactions, deleteTransaction }) {
+function Transactions({ th, transactions, deleteTransaction, categories }) {
   const [search, setSearch] = useState("");
   const filtered = transactions.filter((t) => t.name.toLowerCase().includes(search.toLowerCase()) || t.category.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div>
-      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Transactions</h1>
+      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Transactions</h1>
       <p style={{ color: th.muted, fontSize: 14, marginBottom: 28 }}>{transactions.length} total expenses</p>
-      <input
-        placeholder="Search transactions..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{
-          width: "100%", maxWidth: 400, background: th.surface, border: `1px solid ${th.border}`,
-          borderRadius: 14, padding: "12px 18px", color: th.text, fontSize: 14,
-          outline: "none", marginBottom: 24, fontFamily: "inherit",
-        }}
-      />
+      <input placeholder="Search transactions..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: "100%", maxWidth: 400, background: th.surface, border: `1px solid ${th.border}`, borderRadius: 14, padding: "12px 18px", color: th.text, fontSize: 14, outline: "none", marginBottom: 24, fontFamily: "inherit" }} />
       <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 80px", padding: "14px 24px", borderBottom: `1px solid ${th.border}` }}>
           {["Description", "Category", "Date", "Amount"].map((h) => (
@@ -398,11 +382,11 @@ function Transactions({ th, transactions, deleteTransaction }) {
           ))}
         </div>
         {filtered.map((t) => {
-          const cat = CATEGORIES.find((c) => c.name === t.category);
+          const cat = categories.find((c) => c.name === t.category);
           return (
-            <div key={t.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 80px", padding: "16px 24px", borderBottom: `1px solid ${th.border}`, alignItems: "center", transition: "background 0.15s" }}>
+            <div key={t.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 80px", padding: "16px 24px", borderBottom: `1px solid ${th.border}`, alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${cat?.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{cat?.icon}</div>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${cat?.color || "#888"}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{cat?.icon || "📦"}</div>
                 <span style={{ fontWeight: 500, fontSize: 14 }}>{t.name}</span>
               </div>
               <span style={{ fontSize: 13, color: th.muted }}>{t.category}</span>
@@ -425,7 +409,7 @@ function Transactions({ th, transactions, deleteTransaction }) {
 function Budget({ th, spentByCategory }) {
   return (
     <div>
-      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Budget Goals</h1>
+      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Budget Goals</h1>
       <p style={{ color: th.muted, fontSize: 14, marginBottom: 32 }}>Track your spending against monthly limits</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
         {spentByCategory.map((cat) => {
@@ -444,11 +428,7 @@ function Budget({ th, spentByCategory }) {
                 <span style={{ color: over ? "#FF6B6B" : "#4ECDC4", fontWeight: 700, fontSize: 13 }}>{over ? "Over!" : `${(100 - pct).toFixed(0)}% left`}</span>
               </div>
               <div style={{ background: th.surface2 || "rgba(128,128,128,0.15)", borderRadius: 8, height: 8 }}>
-                <div style={{
-                  width: `${pct}%`, height: "100%", borderRadius: 8,
-                  background: over ? `linear-gradient(90deg, #FF6B6B, #FF9999)` : `linear-gradient(90deg, ${cat.color}, ${cat.color}aa)`,
-                  transition: "width 0.8s ease",
-                }} />
+                <div style={{ width: `${pct}%`, height: "100%", borderRadius: 8, background: over ? "linear-gradient(90deg, #FF6B6B, #FF9999)" : `linear-gradient(90deg, ${cat.color}, ${cat.color}aa)`, transition: "width 0.8s ease" }} />
               </div>
             </div>
           );
@@ -460,10 +440,10 @@ function Budget({ th, spentByCategory }) {
 
 // ─── Add Expense ──────────────────────────────────────────────────────────────
 
-function AddExpense({ th, form, setForm, addTransaction }) {
+function AddExpense({ th, form, setForm, addTransaction, categories, setTab }) {
   return (
     <div style={{ maxWidth: 560 }}>
-      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Add Expense</h1>
+      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Add Expense</h1>
       <p style={{ color: th.muted, fontSize: 14, marginBottom: 36 }}>Log a new transaction to your budget</p>
 
       <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 24, padding: 32, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -474,23 +454,17 @@ function AddExpense({ th, form, setForm, addTransaction }) {
         ].map((f) => (
           <div key={f.key}>
             <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>{f.label}</label>
-            <input
-              type={f.type} placeholder={f.placeholder} value={form[f.key]}
-              onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-              style={{
-                width: "100%", background: th.bg, border: `1.5px solid ${th.border}`,
-                borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15,
-                outline: "none", transition: "border-color 0.15s", fontFamily: "inherit",
-                colorScheme: th.bg === "#0d0d14" ? "dark" : "light",
-              }}
-            />
+            <input type={f.type} placeholder={f.placeholder} value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit", colorScheme: th.bg === "#0d0d14" ? "dark" : "light" }} />
           </div>
         ))}
 
         <div>
-          <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 12 }}>Category</label>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted }}>Category</label>
+            <button onClick={() => setTab("categories")} style={{ background: th.accentSoft, border: "none", color: th.accent, fontSize: 12, fontWeight: 700, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}>+ Manage Categories</button>
+          </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button key={cat.name} onClick={() => setForm({ ...form, category: cat.name })} style={{
                 display: "flex", alignItems: "center", gap: 8,
                 padding: "10px 16px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit",
@@ -505,12 +479,98 @@ function AddExpense({ th, form, setForm, addTransaction }) {
           </div>
         </div>
 
-        <button onClick={addTransaction} style={{
-          background: "#7C6FF7", color: "#fff", border: "none", borderRadius: 14,
-          padding: "16px", fontSize: 15, fontWeight: 700, cursor: "pointer",
-          marginTop: 8, boxShadow: "0 8px 24px rgba(124,111,247,0.35)",
-          transition: "transform 0.15s, box-shadow 0.15s", fontFamily: "inherit",
-        }}>Add Expense →</button>
+        <button onClick={addTransaction} style={{ background: "#7C6FF7", color: "#fff", border: "none", borderRadius: 14, padding: "16px", fontSize: 15, fontWeight: 700, cursor: "pointer", marginTop: 8, boxShadow: "0 8px 24px rgba(124,111,247,0.35)", fontFamily: "inherit" }}>
+          Add Expense →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Categories ───────────────────────────────────────────────────────────────
+
+function Categories({ th, categories, addCategory, deleteCategory, showToast }) {
+  const [showForm, setShowForm] = useState(false);
+  const [newCat, setNewCat] = useState({ name: "", icon: "📦", color: "#7C6FF7", budget: "" });
+
+  function handleAdd() {
+    if (!newCat.name.trim() || !newCat.budget) return showToast("Please fill in all fields", "error");
+    addCategory({ ...newCat, budget: parseFloat(newCat.budget) });
+    setNewCat({ name: "", icon: "📦", color: "#7C6FF7", budget: "" });
+    setShowForm(false);
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Categories</h1>
+        <button onClick={() => setShowForm(!showForm)} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          {showForm ? "✕ Cancel" : "+ New Category"}
+        </button>
+      </div>
+      <p style={{ color: th.muted, fontSize: 14, marginBottom: 32 }}>{categories.length} categories · customise your spending groups</p>
+
+      {/* New Category Form */}
+      {showForm && (
+        <div style={{ background: th.surface, border: `1.5px solid ${th.accent}44`, borderRadius: 20, padding: 28, marginBottom: 28, animation: "modalIn 0.2s ease" }}>
+          <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>✨ Create New Category</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Name</label>
+              <input value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} placeholder="e.g. Travel" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 12, padding: "12px 16px", color: th.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Monthly Budget ($)</label>
+              <input type="number" value={newCat.budget} onChange={(e) => setNewCat({ ...newCat, budget: e.target.value })} placeholder="e.g. 300" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 12, padding: "12px 16px", color: th.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 10 }}>Pick an Emoji</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {PRESET_EMOJIS.map((e) => (
+                <button key={e} onClick={() => setNewCat({ ...newCat, icon: e })} style={{ width: 40, height: 40, borderRadius: 10, border: `2px solid ${newCat.icon === e ? th.accent : th.border}`, background: newCat.icon === e ? th.accentSoft : th.bg, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{e}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 10 }}>Pick a Color</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {PRESET_COLORS.map((c) => (
+                <button key={c} onClick={() => setNewCat({ ...newCat, color: c })} style={{ width: 32, height: 32, borderRadius: "50%", background: c, border: `3px solid ${newCat.color === c ? "#fff" : "transparent"}`, cursor: "pointer", boxShadow: newCat.color === c ? `0 0 0 2px ${c}` : "none" }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Live Preview */}
+          <div style={{ background: th.bg, borderRadius: 14, padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: `${newCat.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{newCat.icon}</div>
+            <div>
+              <p style={{ fontWeight: 700, fontSize: 15, color: newCat.color }}>{newCat.name || "Category Name"}</p>
+              <p style={{ color: th.muted, fontSize: 12 }}>Budget: {newCat.budget ? fmt(parseFloat(newCat.budget)) : "$0.00"}/mo</p>
+            </div>
+            <span style={{ marginLeft: "auto", fontSize: 11, color: th.muted, fontWeight: 600 }}>PREVIEW</span>
+          </div>
+
+          <button onClick={handleAdd} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "14px 28px", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            Create Category →
+          </button>
+        </div>
+      )}
+
+      {/* Category Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        {categories.map((cat) => (
+          <div key={cat.name} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 18, padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: `${cat.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>{cat.icon}</div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 700, fontSize: 15 }}>{cat.name}</p>
+              <p style={{ color: th.muted, fontSize: 12, marginTop: 2 }}>{fmt(cat.budget)}/mo budget</p>
+            </div>
+            <button onClick={() => deleteCategory(cat.name)} style={{ background: "rgba(255,107,107,0.1)", border: "none", color: "#FF6B6B", borderRadius: 10, width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
+          </div>
+        ))}
       </div>
     </div>
   );
