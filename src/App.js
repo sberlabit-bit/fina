@@ -129,7 +129,7 @@ export default function App() {
         transition: "background 0.3s",
       }}>
         <div style={{ marginBottom: 40, paddingLeft: 8 }}>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, color: th.accent, letterSpacing: -0.5 }}>Fina</div>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800, color: th.accent, letterSpacing: -0.5 }}>Fina</div>
           <div style={{ fontSize: 11, color: th.muted, fontWeight: 500, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Budget Tracker</div>
         </div>
 
@@ -282,12 +282,12 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 28 }}>
         {[
           { label: "Total Budget", value: fmt(totalBudget), sub: "This month", color: th.accent },
-          { label: "Total Spent", value: fmt(totalSpent), sub: `${pct.toFixed(0)}% of budget`, color: "#FF6B6B" },
+          { label: "Total Spent", value: fmt(totalSpent), sub: `${pct.toFixed(0)}% of budget`, color: "#f0f0f0" },
           { label: "Remaining", value: fmt(remaining), sub: remaining < 0 ? "Over budget!" : "Available", color: "#4ECDC4" },
         ].map((k) => (
           <div key={k.label} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: "24px 28px" }}>
             <p style={{ color: th.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>{k.label}</p>
-            <p style={{ fontSize: 32, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: k.color, letterSpacing: -1 }}>{k.value}</p>
+            <p style={{ fontSize: 26, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: k.color, letterSpacing: -1 }}>{k.value}</p>
             <p style={{ color: th.muted, fontSize: 13, marginTop: 6 }}>{k.sub}</p>
           </div>
         ))}
