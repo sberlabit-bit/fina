@@ -123,7 +123,7 @@ export default function App() {
 
       {/* Sidebar */}
       <div style={{
-        position: "fixed", left: 0, top: 0, bottom: 0, width: 240,
+        position: "fixed", left: 0, top: 0, bottom: 0, width: 260,
         background: th.surface, borderRight: `1px solid ${th.border}`,
         display: "flex", flexDirection: "column", padding: "28px 16px", zIndex: 100,
         transition: "background 0.3s",
@@ -179,7 +179,7 @@ export default function App() {
       </div>
 
       {/* Main */}
-      <div style={{ marginLeft: 240, padding: "36px 40px", minHeight: "100vh", animation: "fadeUp 0.4s ease" }}>
+      <div style={{ marginLeft: 260, padding: "36px 40px", minHeight: "100vh", animation: "fadeUp 0.4s ease" }}>
         {tab === "dashboard" && <Dashboard th={th} totalBudget={totalBudget} totalSpent={totalSpent} spentByCategory={spentByCategory} lineData={lineData} barData={barData} pieData={pieData} transactions={transactions} />}
         {tab === "transactions" && <Transactions th={th} transactions={transactions} deleteTransaction={deleteTransaction} />}
         {tab === "budget" && <Budget th={th} spentByCategory={spentByCategory} />}
@@ -199,7 +199,7 @@ function Landing({ dark, setDark, th, onStart }) {
 
       {/* Nav */}
       <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "24px 60px", borderBottom: `1px solid ${th.border}` }}>
-        <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800, color: th.accent }}>Fina</div>
+        <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, color: th.accent }}>Fina</div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <div onClick={() => setDark(!dark)} style={{
             width: 44, height: 24, borderRadius: 12,
@@ -275,7 +275,7 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
 
   return (
     <div>
-      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Dashboard</h1>
+      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Dashboard</h1>
       <p style={{ color: th.muted, fontSize: 14, marginBottom: 32 }}>March 2026 — Your financial overview</p>
 
       {/* KPI Row */}
