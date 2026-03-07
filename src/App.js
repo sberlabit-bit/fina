@@ -24,7 +24,21 @@ const DEFAULT_CATEGORIES = [
 const PRESET_COLORS = ["#FF6B6B","#4ECDC4","#FFD93D","#95E1D3","#F38181","#74B9FF","#A29BFE","#FD79A8","#55EFC4","#FDCB6E","#E17055","#81ECEC"];
 const PRESET_EMOJIS = ["🍔","🚗","🛍️","💊","🎮","💡","📦","✈️","🏠","🎓","💼","🐾","🎵","📱","🏋️","🍕","☕","🎁","💈","🌿"];
 
-const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+
+const CURRENCIES = [
+  { code: "EUR", label: "€ EUR — Euro", locale: "fr-FR" },
+  { code: "USD", label: "$ USD — US Dollar", locale: "en-US" },
+  { code: "GBP", label: "£ GBP — British Pound", locale: "en-GB" },
+  { code: "JPY", label: "¥ JPY — Japanese Yen", locale: "ja-JP" },
+  { code: "CHF", label: "CHF — Swiss Franc", locale: "de-CH" },
+  { code: "CAD", label: "CAD — Canadian Dollar", locale: "en-CA" },
+  { code: "AUD", label: "AUD — Australian Dollar", locale: "en-AU" },
+];
+
+const makeFmt = (currency) => {
+  const c = CURRENCIES.find(x => x.code === currency) || CURRENCIES[0];
+  return (n) => new Intl.NumberFormat(c.locale, { style: "currency", currency: c.code }).format(n);
+};
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 // ─── App ─────────────────────────────────────────────────────────────────────
@@ -38,8 +52,11 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [monthlyBudget, setMonthlyBudget] = useState(3000);
+  const [currency, setCurrency] = useState("EUR");
   const [form, setForm] = useState({ name: "", amount: "", category: "Food", date: new Date().toISOString().split("T")[0] });
   const [toast, setToast] = useState(null);
+
+  const fmt = makeFmt(currency);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -59,6 +76,8 @@ export default function App() {
   async function loadData(userId) {
     const savedBudget = localStorage.getItem(`fina_monthly_budget_${userId}`);
     if (savedBudget) setMonthlyBudget(parseFloat(savedBudget));
+    const savedCurrency = localStorage.getItem(`fina_currency_${userId}`);
+    if (savedCurrency) setCurrency(savedCurrency);
     const [{ data: txns }, { data: cats }] = await Promise.all([
       supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: false }),
       supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
@@ -75,6 +94,11 @@ export default function App() {
   function updateMonthlyBudget(val) {
     setMonthlyBudget(val);
     if (session) localStorage.setItem(`fina_monthly_budget_${session.user.id}`, val);
+  }
+
+  function updateCurrency(val) {
+    setCurrency(val);
+    if (session) localStorage.setItem(`fina_currency_${session.user.id}`, val);
   }
 
   function showToast(msg, type = "success") {
@@ -139,12 +163,12 @@ export default function App() {
   const pieData = spentByCategory.filter((c) => c.spent > 0).map((c) => ({ name: c.name, value: c.spent, color: c.color }));
 
   const th = {
-    bg: dark ? "#0d0d14" : "#f5f5f7",
-    surface: dark ? "#16161f" : "#ffffff",
-    surface2: dark ? "#1e1e2e" : "#f0f0f5",
-    border: dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)",
-    text: dark ? "#f0f0f0" : "#0d0d14",
-    muted: dark ? "#555577" : "#999",
+    bg: dark ? "#0d0d14" : "#eeeef2",
+    surface: dark ? "#16161f" : "#f7f7fa",
+    surface2: dark ? "#1e1e2e" : "#e4e4ea",
+    border: dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.1)",
+    text: dark ? "#f0f0f0" : "#1a1a2e",
+    muted: dark ? "#555577" : "#6b6b80",
     accent: "#7C6FF7",
     accentSoft: dark ? "rgba(124,111,247,0.15)" : "rgba(124,111,247,0.1)",
   };
@@ -190,6 +214,7 @@ export default function App() {
           { id: "budget", icon: "◎", label: "Budget" },
           { id: "add", icon: "+", label: "Add Expense" },
           { id: "categories", icon: "⊞", label: "Categories" },
+          { id: "settings", icon: "⚙", label: "Settings" },
         ].map((item) => (
           <button key={item.id} onClick={() => setTab(item.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, marginBottom: 4, background: tab === item.id ? th.accentSoft : "transparent", border: "none", cursor: "pointer", color: tab === item.id ? th.accent : th.muted, fontSize: 14, fontWeight: tab === item.id ? 600 : 500, transition: "all 0.15s", textAlign: "left", width: "100%" }}>
             <span style={{ fontSize: 18, width: 22 }}>{item.icon}</span>
@@ -218,11 +243,12 @@ export default function App() {
 
       {/* Main */}
       <div style={{ marginLeft: 260, padding: "36px 40px", minHeight: "100vh", animation: "fadeUp 0.4s ease" }}>
-        {tab === "dashboard" && <Dashboard th={th} totalBudget={totalBudget} totalSpent={totalSpent} spentByCategory={spentByCategory} lineData={lineData} barData={barData} pieData={pieData} transactions={transactions} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} />}
-        {tab === "transactions" && <Transactions th={th} transactions={transactions} deleteTransaction={deleteTransaction} categories={categories} />}
-        {tab === "budget" && <Budget th={th} spentByCategory={spentByCategory} />}
-        {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} categories={categories} setTab={setTab} />}
-        {tab === "categories" && <Categories th={th} categories={categories} addCategory={addCategory} deleteCategory={deleteCategory} showToast={showToast} />}
+        {tab === "dashboard" && <Dashboard th={th} totalBudget={totalBudget} totalSpent={totalSpent} spentByCategory={spentByCategory} lineData={lineData} barData={barData} pieData={pieData} transactions={transactions} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} fmt={fmt} />}
+        {tab === "transactions" && <Transactions th={th} transactions={transactions} deleteTransaction={deleteTransaction} categories={categories} fmt={fmt} />}
+        {tab === "budget" && <Budget th={th} spentByCategory={spentByCategory} fmt={fmt} />}
+        {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} categories={categories} setTab={setTab} fmt={fmt} />}
+        {tab === "categories" && <Categories th={th} categories={categories} addCategory={addCategory} deleteCategory={deleteCategory} showToast={showToast} fmt={fmt} />}
+        {tab === "settings" && <Settings th={th} currency={currency} updateCurrency={updateCurrency} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} fmt={fmt} dark={dark} setDark={setDark} />}
       </div>
     </div>
   );
@@ -357,7 +383,7 @@ function Landing({ dark, setDark, th, onStart }) {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, barData, pieData, transactions, monthlyBudget, updateMonthlyBudget }) {
+function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, barData, pieData, transactions, monthlyBudget, updateMonthlyBudget, fmt }) {
   const remaining = monthlyBudget - totalSpent;
   const pct = Math.min((totalSpent / monthlyBudget) * 100, 100);
   const catTotal = totalBudget;
@@ -505,7 +531,7 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
-function Transactions({ th, transactions, deleteTransaction, categories }) {
+function Transactions({ th, transactions, deleteTransaction, categories, fmt }) {
   const [search, setSearch] = useState("");
   const filtered = transactions.filter((t) => t.name.toLowerCase().includes(search.toLowerCase()) || t.category.toLowerCase().includes(search.toLowerCase()));
 
@@ -545,7 +571,7 @@ function Transactions({ th, transactions, deleteTransaction, categories }) {
 
 // ─── Budget ───────────────────────────────────────────────────────────────────
 
-function Budget({ th, spentByCategory }) {
+function Budget({ th, spentByCategory, fmt }) {
   return (
     <div>
       <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Budget Goals</h1>
@@ -579,7 +605,7 @@ function Budget({ th, spentByCategory }) {
 
 // ─── Add Expense ──────────────────────────────────────────────────────────────
 
-function AddExpense({ th, form, setForm, addTransaction, categories, setTab }) {
+function AddExpense({ th, form, setForm, addTransaction, categories, setTab, fmt }) {
   return (
     <div style={{ maxWidth: 560 }}>
       <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Add Expense</h1>
@@ -592,7 +618,7 @@ function AddExpense({ th, form, setForm, addTransaction, categories, setTab }) {
         ].map((f) => (
           <div key={f.key}>
             <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>{f.label}</label>
-            <input type={f.type} placeholder={f.placeholder} value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit", colorScheme: th.bg === "#0d0d14" ? "dark" : "light" }} />
+            <input type={f.type} placeholder={f.placeholder} value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit", colorScheme: dark ? "dark" : "light" }} />
           </div>
         ))}
         <div>
@@ -618,7 +644,7 @@ function AddExpense({ th, form, setForm, addTransaction, categories, setTab }) {
 
 // ─── Categories ───────────────────────────────────────────────────────────────
 
-function Categories({ th, categories, addCategory, deleteCategory, showToast }) {
+function Categories({ th, categories, addCategory, deleteCategory, showToast, fmt }) {
   const [showForm, setShowForm] = useState(false);
   const [newCat, setNewCat] = useState({ name: "", icon: "📦", color: "#7C6FF7", budget: "" });
 
@@ -693,6 +719,83 @@ function Categories({ th, categories, addCategory, deleteCategory, showToast }) 
             <button onClick={() => deleteCategory(cat.id || cat.name)} style={{ background: "rgba(255,107,107,0.1)", border: "none", color: "#FF6B6B", borderRadius: 10, width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+function Settings({ th, currency, updateCurrency, monthlyBudget, updateMonthlyBudget, fmt, dark, setDark }) {
+  const [budgetInput, setBudgetInput] = useState(monthlyBudget);
+  const [saved, setSaved] = useState(false);
+
+  function handleSave() {
+    updateMonthlyBudget(parseFloat(budgetInput));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Settings</h1>
+      <p style={{ color: th.muted, fontSize: 14, marginBottom: 36 }}>Customise Fina to your preferences</p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+        {/* Currency */}
+        <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 28 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>💱 Currency</h3>
+          <p style={{ color: th.muted, fontSize: 13, marginBottom: 20 }}>All amounts will be displayed in your chosen currency</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {CURRENCIES.map((c) => (
+              <div key={c.code} onClick={() => updateCurrency(c.code)} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "14px 18px", borderRadius: 14, cursor: "pointer",
+                background: currency === c.code ? th.accentSoft : th.bg,
+                border: `1.5px solid ${currency === c.code ? th.accent : th.border}`,
+                transition: "all 0.15s",
+              }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: currency === c.code ? th.accent : th.text }}>{c.label}</span>
+                {currency === c.code && <span style={{ color: th.accent, fontSize: 16 }}>✓</span>}
+              </div>
+            ))}
+          </div>
+          <p style={{ color: th.muted, fontSize: 12, marginTop: 16 }}>Preview: {fmt(1234.56)}</p>
+        </div>
+
+        {/* Monthly Budget */}
+        <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 28 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🎯 Monthly Budget</h3>
+          <p style={{ color: th.muted, fontSize: 13, marginBottom: 20 }}>Set your overall spending limit for the month</p>
+          <input
+            type="number"
+            value={budgetInput}
+            onChange={(e) => setBudgetInput(e.target.value)}
+            style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 20, fontWeight: 700, outline: "none", fontFamily: "'Syne', sans-serif", marginBottom: 16 }}
+          />
+          <button onClick={handleSave} style={{ background: saved ? "#4ECDC4" : th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "13px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "background 0.3s" }}>
+            {saved ? "✓ Saved!" : "Save Budget"}
+          </button>
+        </div>
+
+        {/* Theme */}
+        <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 28 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🎨 Appearance</h3>
+          <p style={{ color: th.muted, fontSize: 13, marginBottom: 20 }}>Choose between dark and light mode</p>
+          <div style={{ display: "flex", gap: 12 }}>
+            {[{ label: "🌙 Dark", val: true }, { label: "☀️ Light", val: false }].map((t) => (
+              <div key={t.label} onClick={() => setDark(t.val)} style={{
+                flex: 1, padding: "14px", borderRadius: 14, cursor: "pointer", textAlign: "center",
+                background: dark === t.val ? th.accentSoft : th.bg,
+                border: `1.5px solid ${dark === t.val ? th.accent : th.border}`,
+                color: dark === t.val ? th.accent : th.muted,
+                fontWeight: 600, fontSize: 14, transition: "all 0.15s",
+              }}>{t.label}</div>
+            ))}
+          </div>
+        </div>
+
       </div>
     </div>
   );
