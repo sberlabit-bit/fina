@@ -1,7 +1,15 @@
 import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 
-// ─── Default Categories ───────────────────────────────────────────────────────
+// ─── Supabase ─────────────────────────────────────────────────────────────────
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEFAULT_CATEGORIES = [
   { name: "Food", icon: "🍔", color: "#FF6B6B", budget: 500 },
@@ -13,21 +21,6 @@ const DEFAULT_CATEGORIES = [
   { name: "Other", icon: "📦", color: "#A29BFE", budget: 100 },
 ];
 
-const SAMPLE = [
-  { id: 1, category: "Food", name: "Whole Foods", amount: 67.4, date: "2026-03-01" },
-  { id: 2, category: "Transport", name: "Uber", amount: 14.5, date: "2026-03-01" },
-  { id: 3, category: "Fun", name: "Netflix", amount: 15.99, date: "2026-02-28" },
-  { id: 4, category: "Shopping", name: "Amazon", amount: 89.0, date: "2026-02-27" },
-  { id: 5, category: "Bills", name: "Electricity", amount: 120.0, date: "2026-02-25" },
-  { id: 6, category: "Food", name: "Chipotle", amount: 13.75, date: "2026-02-24" },
-  { id: 7, category: "Health", name: "Gym", amount: 45.0, date: "2026-02-22" },
-  { id: 8, category: "Transport", name: "Gas", amount: 52.3, date: "2026-02-20" },
-  { id: 9, category: "Food", name: "Starbucks", amount: 8.5, date: "2026-02-18" },
-  { id: 10, category: "Shopping", name: "ZARA", amount: 134.0, date: "2026-02-15" },
-  { id: 11, category: "Bills", name: "Internet", amount: 59.99, date: "2026-02-10" },
-  { id: 12, category: "Fun", name: "Cinema", amount: 22.0, date: "2026-02-08" },
-];
-
 const PRESET_COLORS = ["#FF6B6B","#4ECDC4","#FFD93D","#95E1D3","#F38181","#74B9FF","#A29BFE","#FD79A8","#55EFC4","#FDCB6E","#E17055","#81ECEC"];
 const PRESET_EMOJIS = ["🍔","🚗","🛍️","💊","🎮","💡","📦","✈️","🏠","🎓","💼","🐾","🎵","📱","🏋️","🍕","☕","🎁","💈","🌿"];
 
@@ -37,53 +30,87 @@ const fmtDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short",
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState("landing");
   const [dark, setDark] = useState(true);
   const [tab, setTab] = useState("dashboard");
-  const [transactions, setTransactions] = useState(() => {
-    try { const s = localStorage.getItem("budget_txns"); return s ? JSON.parse(s) : SAMPLE; } catch { return SAMPLE; }
-  });
-  const [categories, setCategories] = useState(() => {
-    try { const s = localStorage.getItem("budget_cats"); return s ? JSON.parse(s) : DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; }
-  });
+  const [transactions, setTransactions] = useState([]);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [form, setForm] = useState({ name: "", amount: "", category: "Food", date: new Date().toISOString().split("T")[0] });
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
-    try { localStorage.setItem("budget_txns", JSON.stringify(transactions)); } catch {}
-  }, [transactions]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        setPage("app");
+        loadData(session.user.id);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
-  useEffect(() => {
-    try { localStorage.setItem("budget_cats", JSON.stringify(categories)); } catch {}
-  }, [categories]);
+  async function loadData(userId) {
+    const [{ data: txns }, { data: cats }] = await Promise.all([
+      supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: false }),
+      supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+    ]);
+    if (txns) setTransactions(txns);
+    if (cats && cats.length > 0) setCategories(cats);
+    else {
+      // Seed default categories for new users
+      const defaultWithUser = DEFAULT_CATEGORIES.map(c => ({ ...c, user_id: userId }));
+      const { data: seeded } = await supabase.from("categories").insert(defaultWithUser).select();
+      if (seeded) setCategories(seeded);
+    }
+  }
 
   function showToast(msg, type = "success") {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 2800);
   }
 
-  function addTransaction() {
+  async function addTransaction() {
     if (!form.name.trim() || !form.amount) return showToast("Please fill in all fields", "error");
-    const t = { id: Date.now(), ...form, amount: parseFloat(form.amount) };
-    setTransactions([t, ...transactions]);
+    const newT = { ...form, amount: parseFloat(form.amount), user_id: session.user.id };
+    const { data, error } = await supabase.from("transactions").insert(newT).select().single();
+    if (error) return showToast("Error adding expense", "error");
+    setTransactions([data, ...transactions]);
     setForm({ name: "", amount: "", category: categories[0]?.name || "Other", date: new Date().toISOString().split("T")[0] });
     showToast("Expense added! ✓");
   }
 
-  function deleteTransaction(id) {
+  async function deleteTransaction(id) {
+    await supabase.from("transactions").delete().eq("id", id);
     setTransactions(transactions.filter((t) => t.id !== id));
     showToast("Deleted");
   }
 
-  function addCategory(cat) {
+  async function addCategory(cat) {
     if (categories.find((c) => c.name.toLowerCase() === cat.name.toLowerCase())) return showToast("Category already exists", "error");
-    setCategories([...categories, cat]);
+    const { data, error } = await supabase.from("categories").insert({ ...cat, user_id: session.user.id }).select().single();
+    if (error) return showToast("Error adding category", "error");
+    setCategories([...categories, data]);
     showToast(`${cat.icon} ${cat.name} added!`);
   }
 
-  function deleteCategory(name) {
-    setCategories(categories.filter((c) => c.name !== name));
+  async function deleteCategory(id) {
+    await supabase.from("categories").delete().eq("id", id);
+    setCategories(categories.filter((c) => c.id !== id));
     showToast("Category removed");
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setSession(null);
+    setTransactions([]);
+    setCategories(DEFAULT_CATEGORIES);
+    setPage("landing");
   }
 
   const totalBudget = categories.reduce((s, c) => s + c.budget, 0);
@@ -115,20 +142,21 @@ export default function App() {
     accentSoft: dark ? "rgba(124,111,247,0.15)" : "rgba(124,111,247,0.1)",
   };
 
-  if (page === "landing") return <Landing dark={dark} setDark={setDark} th={th} onStart={() => setPage("app")} />;
+  if (loading) return (
+    <div style={{ minHeight: "100vh", background: "#0d0d14", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ color: "#7C6FF7", fontFamily: "sans-serif", fontSize: 18 }}>Loading...</div>
+    </div>
+  );
+
+  if (page === "landing") return <Landing dark={dark} setDark={setDark} th={th} onStart={() => session ? setPage("app") : setPage("auth")} />;
+  if (page === "auth") return <Auth th={th} dark={dark} setDark={setDark} supabase={supabase} showToast={showToast} setPage={setPage} toast={toast} />;
 
   return (
     <div style={{ minHeight: "100vh", background: th.bg, fontFamily: "'DM Sans', sans-serif", color: th.text, transition: "background 0.3s, color 0.3s" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
 
       {toast && (
-        <div style={{
-          position: "fixed", top: 24, right: 24, zIndex: 9999,
-          background: toast.type === "error" ? "#FF6B6B" : th.accent,
-          color: "#fff", borderRadius: 14, padding: "12px 20px",
-          fontSize: 14, fontWeight: 600, boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
-          animation: "slideIn 0.3s ease",
-        }}>{toast.msg}</div>
+        <div style={{ position: "fixed", top: 24, right: 24, zIndex: 9999, background: toast.type === "error" ? "#FF6B6B" : th.accent, color: "#fff", borderRadius: 14, padding: "12px 20px", fontSize: 14, fontWeight: 600, boxShadow: "0 8px 32px rgba(0,0,0,0.3)", animation: "slideIn 0.3s ease" }}>{toast.msg}</div>
       )}
 
       <style>{`
@@ -143,15 +171,10 @@ export default function App() {
       `}</style>
 
       {/* Sidebar */}
-      <div style={{
-        position: "fixed", left: 0, top: 0, bottom: 0, width: 260,
-        background: th.surface, borderRight: `1px solid ${th.border}`,
-        display: "flex", flexDirection: "column", padding: "28px 16px", zIndex: 100,
-        transition: "background 0.3s",
-      }}>
+      <div style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 260, background: th.surface, borderRight: `1px solid ${th.border}`, display: "flex", flexDirection: "column", padding: "28px 16px", zIndex: 100, transition: "background 0.3s" }}>
         <div style={{ marginBottom: 40, paddingLeft: 8 }}>
           <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, color: th.accent, letterSpacing: -0.5 }}>Fina</div>
-          <div style={{ fontSize: 11, color: th.muted, fontWeight: 500, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Budget Tracker</div>
+          <div style={{ fontSize: 11, color: th.muted, fontWeight: 500, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Fine with your finances</div>
         </div>
 
         {[
@@ -161,40 +184,28 @@ export default function App() {
           { id: "add", icon: "+", label: "Add Expense" },
           { id: "categories", icon: "⊞", label: "Categories" },
         ].map((item) => (
-          <button key={item.id} onClick={() => setTab(item.id)} style={{
-            display: "flex", alignItems: "center", gap: 12,
-            padding: "11px 14px", borderRadius: 12, marginBottom: 4,
-            background: tab === item.id ? th.accentSoft : "transparent",
-            border: "none", cursor: "pointer", color: tab === item.id ? th.accent : th.muted,
-            fontSize: 14, fontWeight: tab === item.id ? 600 : 500,
-            transition: "all 0.15s", textAlign: "left", width: "100%",
-          }}>
+          <button key={item.id} onClick={() => setTab(item.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, marginBottom: 4, background: tab === item.id ? th.accentSoft : "transparent", border: "none", cursor: "pointer", color: tab === item.id ? th.accent : th.muted, fontSize: 14, fontWeight: tab === item.id ? 600 : 500, transition: "all 0.15s", textAlign: "left", width: "100%" }}>
             <span style={{ fontSize: 18, width: 22 }}>{item.icon}</span>
             {item.label}
           </button>
         ))}
 
         <div style={{ marginTop: "auto" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: th.surface2, borderRadius: 12 }}>
+          {session && (
+            <div style={{ padding: "10px 14px", marginBottom: 8, background: th.surface2, borderRadius: 12 }}>
+              <p style={{ fontSize: 11, color: th.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Signed in as</p>
+              <p style={{ fontSize: 13, color: th.text, fontWeight: 500, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.user.email}</p>
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: th.surface2, borderRadius: 12, marginBottom: 8 }}>
             <span style={{ fontSize: 13, color: th.muted, fontWeight: 500 }}>{dark ? "🌙 Dark" : "☀️ Light"}</span>
-            <div onClick={() => setDark(!dark)} style={{
-              width: 44, height: 24, borderRadius: 12,
-              background: dark ? th.accent : "#ddd",
-              position: "relative", cursor: "pointer", transition: "background 0.3s",
-            }}>
-              <div style={{
-                position: "absolute", top: 2, left: dark ? 22 : 2,
-                width: 20, height: 20, borderRadius: 10,
-                background: "#fff", transition: "left 0.3s",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-              }} />
+            <div onClick={() => setDark(!dark)} style={{ width: 44, height: 24, borderRadius: 12, background: dark ? th.accent : "#ddd", position: "relative", cursor: "pointer", transition: "background 0.3s" }}>
+              <div style={{ position: "absolute", top: 2, left: dark ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left 0.3s", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" }} />
             </div>
           </div>
-          <button onClick={() => setPage("landing")} style={{
-            width: "100%", marginTop: 8, padding: "10px 14px",
-            background: "transparent", border: "none", cursor: "pointer",
-            color: th.muted, fontSize: 13, fontWeight: 500, textAlign: "left", borderRadius: 12,
-          }}>← Back to Home</button>
+          <button onClick={signOut} style={{ width: "100%", padding: "10px 14px", background: "rgba(255,107,107,0.1)", border: "none", cursor: "pointer", color: "#FF6B6B", fontSize: 13, fontWeight: 600, textAlign: "left", borderRadius: 12, fontFamily: "inherit" }}>
+            → Sign Out
+          </button>
         </div>
       </div>
 
@@ -205,6 +216,78 @@ export default function App() {
         {tab === "budget" && <Budget th={th} spentByCategory={spentByCategory} />}
         {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} categories={categories} setTab={setTab} />}
         {tab === "categories" && <Categories th={th} categories={categories} addCategory={addCategory} deleteCategory={deleteCategory} showToast={showToast} />}
+      </div>
+    </div>
+  );
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+function Auth({ th, dark, setDark, supabase, showToast, setPage, toast }) {
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleAuth() {
+    if (!email || !password) return showToast("Please fill in all fields", "error");
+    setLoading(true);
+    if (mode === "login") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) showToast(error.message, "error");
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) showToast(error.message, "error");
+      else showToast("Check your email to confirm your account!");
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: th.bg, fontFamily: "'DM Sans', sans-serif", color: th.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+      <style>{`* { box-sizing: border-box; margin: 0; padding: 0 } @keyframes fadeUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }`}</style>
+
+      {toast && (
+        <div style={{ position: "fixed", top: 24, right: 24, zIndex: 9999, background: toast.type === "error" ? "#FF6B6B" : th.accent, color: "#fff", borderRadius: 14, padding: "12px 20px", fontSize: 14, fontWeight: 600, boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>{toast.msg}</div>
+      )}
+
+      <div style={{ width: "100%", maxWidth: 420, padding: 24, animation: "fadeUp 0.4s ease" }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 32, fontWeight: 800, color: th.accent, marginBottom: 8 }}>Fina</div>
+          <p style={{ color: th.muted, fontSize: 14 }}>Fine with your finances</p>
+        </div>
+
+        <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 24, padding: 32 }}>
+          {/* Toggle */}
+          <div style={{ display: "flex", background: th.surface2, borderRadius: 14, padding: 4, marginBottom: 28 }}>
+            {["login", "signup"].map((m) => (
+              <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", background: mode === m ? th.accent : "transparent", color: mode === m ? "#fff" : th.muted, fontSize: 14, fontWeight: 600, fontFamily: "inherit", transition: "all 0.2s" }}>
+                {m === "login" ? "Sign In" : "Sign Up"}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Password</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit" }}
+                onKeyDown={(e) => e.key === "Enter" && handleAuth()} />
+            </div>
+
+            <button onClick={handleAuth} disabled={loading} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 14, padding: "16px", fontSize: 15, fontWeight: 700, cursor: "pointer", marginTop: 8, boxShadow: "0 8px 24px rgba(124,111,247,0.35)", fontFamily: "inherit", opacity: loading ? 0.7 : 1 }}>
+              {loading ? "Loading..." : mode === "login" ? "Sign In →" : "Create Account →"}
+            </button>
+          </div>
+        </div>
+
+        <button onClick={() => setPage("landing")} style={{ width: "100%", marginTop: 16, padding: "10px", background: "transparent", border: "none", cursor: "pointer", color: th.muted, fontSize: 13, fontFamily: "inherit" }}>
+          ← Back to Home
+        </button>
       </div>
     </div>
   );
@@ -224,21 +307,20 @@ function Landing({ dark, setDark, th, onStart }) {
           <div onClick={() => setDark(!dark)} style={{ width: 44, height: 24, borderRadius: 12, background: dark ? th.accent : "#ddd", position: "relative", cursor: "pointer", transition: "background 0.3s" }}>
             <div style={{ position: "absolute", top: 2, left: dark ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left 0.3s" }} />
           </div>
-          <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Open App →</button>
+          <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Get Started →</button>
         </div>
       </nav>
 
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "100px 40px 80px", animation: "fadeUp 0.6s ease" }}>
         <div style={{ display: "inline-block", background: th.accentSoft, color: th.accent, borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 28 }}>Free Budget Tracker</div>
         <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(42px, 7vw, 80px)", fontWeight: 800, lineHeight: 1.05, letterSpacing: -2, marginBottom: 24, maxWidth: 700 }}>
-          Know where your<br /><span style={{ color: th.accent }}>money goes.</span>
+          Be <span style={{ color: th.accent }}>fine</span> with<br />your finances.
         </h1>
         <p style={{ fontSize: 18, color: th.muted, maxWidth: 480, lineHeight: 1.7, marginBottom: 44, fontWeight: 400 }}>
           A clean, fast expense tracker with smart budgets, visual charts, and custom categories. Built for people who actually want to save.
         </p>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
           <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 14, padding: "16px 36px", fontSize: 16, fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 32px rgba(124,111,247,0.35)" }}>Get Started — It's Free</button>
-          <button style={{ background: "transparent", color: th.text, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "16px 36px", fontSize: 16, fontWeight: 600, cursor: "pointer" }}>See Demo ↓</button>
         </div>
       </div>
 
@@ -247,7 +329,7 @@ function Landing({ dark, setDark, th, onStart }) {
           {[
             { icon: "📊", title: "Visual Charts", desc: "Line, bar, and donut charts show exactly where your budget stands at a glance." },
             { icon: "🏷️", title: "Custom Categories", desc: "Create your own spending categories with custom icons, colors and budget limits." },
-            { icon: "💾", title: "Auto-Saved", desc: "Your data saves automatically in your browser. No account needed, no signup." },
+            { icon: "🔐", title: "Your Data, Private", desc: "Sign in securely. Your expenses are private and only visible to you." },
           ].map((f) => (
             <div key={f.title} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 28 }}>
               <div style={{ fontSize: 32, marginBottom: 14 }}>{f.icon}</div>
@@ -260,7 +342,7 @@ function Landing({ dark, setDark, th, onStart }) {
 
       <div style={{ borderTop: `1px solid ${th.border}`, padding: "24px 60px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, color: th.accent }}>Fina</span>
-        <span style={{ color: th.muted, fontSize: 13 }}>© 2026 · Built with Claude</span>
+        <span style={{ color: th.muted, fontSize: 13 }}>© 2026 · Fine with your finances</span>
       </div>
     </div>
   );
@@ -344,21 +426,25 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
 
       <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 24 }}>
         <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 20 }}>Recent Transactions</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {transactions.slice(0, 5).map((t) => {
-            const cat = spentByCategory.find((c) => c.name === t.category);
-            return (
-              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: `1px solid ${th.border}` }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: `${cat?.color || "#888"}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{cat?.icon || "📦"}</div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</p>
-                  <p style={{ color: th.muted, fontSize: 12, marginTop: 2 }}>{t.category} · {fmtDate(t.date)}</p>
+        {transactions.length === 0 ? (
+          <p style={{ color: th.muted, fontSize: 14, textAlign: "center", padding: "20px 0" }}>No transactions yet — add your first expense!</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {transactions.slice(0, 5).map((t) => {
+              const cat = spentByCategory.find((c) => c.name === t.category);
+              return (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: `1px solid ${th.border}` }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: `${cat?.color || "#888"}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{cat?.icon || "📦"}</div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</p>
+                    <p style={{ color: th.muted, fontSize: 12, marginTop: 2 }}>{t.category} · {fmtDate(t.date)}</p>
+                  </div>
+                  <span style={{ color: "#FF6B6B", fontWeight: 700, fontSize: 15 }}>-{fmt(t.amount)}</span>
                 </div>
-                <span style={{ color: "#FF6B6B", fontWeight: 700, fontSize: 15 }}>-{fmt(t.amount)}</span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -445,7 +531,6 @@ function AddExpense({ th, form, setForm, addTransaction, categories, setTab }) {
     <div style={{ maxWidth: 560 }}>
       <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Add Expense</h1>
       <p style={{ color: th.muted, fontSize: 14, marginBottom: 36 }}>Log a new transaction to your budget</p>
-
       <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 24, padding: 32, display: "flex", flexDirection: "column", gap: 20 }}>
         {[
           { label: "Description", key: "name", type: "text", placeholder: "e.g. Whole Foods" },
@@ -457,28 +542,19 @@ function AddExpense({ th, form, setForm, addTransaction, categories, setTab }) {
             <input type={f.type} placeholder={f.placeholder} value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit", colorScheme: th.bg === "#0d0d14" ? "dark" : "light" }} />
           </div>
         ))}
-
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted }}>Category</label>
-            <button onClick={() => setTab("categories")} style={{ background: th.accentSoft, border: "none", color: th.accent, fontSize: 12, fontWeight: 700, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}>+ Manage Categories</button>
+            <button onClick={() => setTab("categories")} style={{ background: th.accentSoft, border: "none", color: th.accent, fontSize: 12, fontWeight: 700, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}>+ Manage</button>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {categories.map((cat) => (
-              <button key={cat.name} onClick={() => setForm({ ...form, category: cat.name })} style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "10px 16px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit",
-                background: form.category === cat.name ? `${cat.color}22` : th.bg,
-                border: `1.5px solid ${form.category === cat.name ? cat.color : th.border}`,
-                color: form.category === cat.name ? cat.color : th.muted,
-                fontSize: 13, fontWeight: 600, transition: "all 0.15s",
-              }}>
+              <button key={cat.name} onClick={() => setForm({ ...form, category: cat.name })} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit", background: form.category === cat.name ? `${cat.color}22` : th.bg, border: `1.5px solid ${form.category === cat.name ? cat.color : th.border}`, color: form.category === cat.name ? cat.color : th.muted, fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}>
                 {cat.icon} {cat.name}
               </button>
             ))}
           </div>
         </div>
-
         <button onClick={addTransaction} style={{ background: "#7C6FF7", color: "#fff", border: "none", borderRadius: 14, padding: "16px", fontSize: 15, fontWeight: 700, cursor: "pointer", marginTop: 8, boxShadow: "0 8px 24px rgba(124,111,247,0.35)", fontFamily: "inherit" }}>
           Add Expense →
         </button>
@@ -510,7 +586,6 @@ function Categories({ th, categories, addCategory, deleteCategory, showToast }) 
       </div>
       <p style={{ color: th.muted, fontSize: 14, marginBottom: 32 }}>{categories.length} categories · customise your spending groups</p>
 
-      {/* New Category Form */}
       {showForm && (
         <div style={{ background: th.surface, border: `1.5px solid ${th.accent}44`, borderRadius: 20, padding: 28, marginBottom: 28, animation: "modalIn 0.2s ease" }}>
           <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>✨ Create New Category</p>
@@ -524,7 +599,6 @@ function Categories({ th, categories, addCategory, deleteCategory, showToast }) 
               <input type="number" value={newCat.budget} onChange={(e) => setNewCat({ ...newCat, budget: e.target.value })} placeholder="e.g. 300" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 12, padding: "12px 16px", color: th.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
             </div>
           </div>
-
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 10 }}>Pick an Emoji</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -533,7 +607,6 @@ function Categories({ th, categories, addCategory, deleteCategory, showToast }) 
               ))}
             </div>
           </div>
-
           <div style={{ marginBottom: 20 }}>
             <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 10 }}>Pick a Color</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -542,8 +615,6 @@ function Categories({ th, categories, addCategory, deleteCategory, showToast }) 
               ))}
             </div>
           </div>
-
-          {/* Live Preview */}
           <div style={{ background: th.bg, borderRadius: 14, padding: "14px 18px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 44, height: 44, borderRadius: 14, background: `${newCat.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{newCat.icon}</div>
             <div>
@@ -552,23 +623,21 @@ function Categories({ th, categories, addCategory, deleteCategory, showToast }) 
             </div>
             <span style={{ marginLeft: "auto", fontSize: 11, color: th.muted, fontWeight: 600 }}>PREVIEW</span>
           </div>
-
           <button onClick={handleAdd} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "14px 28px", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
             Create Category →
           </button>
         </div>
       )}
 
-      {/* Category Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
         {categories.map((cat) => (
-          <div key={cat.name} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 18, padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
+          <div key={cat.id || cat.name} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 18, padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: `${cat.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>{cat.icon}</div>
             <div style={{ flex: 1 }}>
               <p style={{ fontWeight: 700, fontSize: 15 }}>{cat.name}</p>
               <p style={{ color: th.muted, fontSize: 12, marginTop: 2 }}>{fmt(cat.budget)}/mo budget</p>
             </div>
-            <button onClick={() => deleteCategory(cat.name)} style={{ background: "rgba(255,107,107,0.1)", border: "none", color: "#FF6B6B", borderRadius: 10, width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
+            <button onClick={() => deleteCategory(cat.id || cat.name)} style={{ background: "rgba(255,107,107,0.1)", border: "none", color: "#FF6B6B", borderRadius: 10, width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
           </div>
         ))}
       </div>
