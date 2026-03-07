@@ -243,10 +243,10 @@ export default function App() {
 
       {/* Main */}
       <div style={{ marginLeft: 260, padding: "36px 40px", minHeight: "100vh", animation: "fadeUp 0.4s ease" }}>
-        {tab === "dashboard" && <Dashboard th={th} totalBudget={totalBudget} totalSpent={totalSpent} spentByCategory={spentByCategory} lineData={lineData} barData={barData} pieData={pieData} transactions={transactions} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} fmt={fmt} />}
+        {tab === "dashboard" && <Dashboard th={th} totalBudget={totalBudget} totalSpent={totalSpent} spentByCategory={spentByCategory} lineData={lineData} barData={barData} pieData={pieData} transactions={transactions} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} fmt={fmt} dark={dark} />}
         {tab === "transactions" && <Transactions th={th} transactions={transactions} deleteTransaction={deleteTransaction} categories={categories} fmt={fmt} />}
         {tab === "budget" && <Budget th={th} spentByCategory={spentByCategory} fmt={fmt} />}
-        {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} categories={categories} setTab={setTab} fmt={fmt} />}
+        {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} categories={categories} setTab={setTab} fmt={fmt} dark={dark} />}
         {tab === "categories" && <Categories th={th} categories={categories} addCategory={addCategory} deleteCategory={deleteCategory} showToast={showToast} fmt={fmt} />}
         {tab === "settings" && <Settings th={th} currency={currency} updateCurrency={updateCurrency} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} fmt={fmt} dark={dark} setDark={setDark} />}
       </div>
@@ -383,7 +383,7 @@ function Landing({ dark, setDark, th, onStart }) {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, barData, pieData, transactions, monthlyBudget, updateMonthlyBudget, fmt }) {
+function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, barData, pieData, transactions, monthlyBudget, updateMonthlyBudget, fmt, dark }) {
   const remaining = monthlyBudget - totalSpent;
   const pct = Math.min((totalSpent / monthlyBudget) * 100, 100);
   const catTotal = totalBudget;
@@ -441,7 +441,7 @@ function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, bar
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 28 }}>
         {[
           { label: "Monthly Budget", value: fmt(monthlyBudget), sub: "Your spending limit", color: th.accent },
-          { label: "Total Spent", value: fmt(totalSpent), sub: `${pct.toFixed(0)}% of budget`, color: "#f0f0f0" },
+          { label: "Total Spent", value: fmt(totalSpent), sub: `${pct.toFixed(0)}% of budget`, color: dark ? "#f0f0f0" : "#1a1a2e" },
           { label: "Remaining", value: fmt(remaining), sub: isOver ? "Over budget!" : "Available", color: isOver ? "#FF6B6B" : "#4ECDC4" },
         ].map((k) => (
           <div key={k.label} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: "24px 28px" }}>
@@ -605,7 +605,7 @@ function Budget({ th, spentByCategory, fmt }) {
 
 // ─── Add Expense ──────────────────────────────────────────────────────────────
 
-function AddExpense({ th, form, setForm, addTransaction, categories, setTab, fmt }) {
+function AddExpense({ th, form, setForm, addTransaction, categories, setTab, fmt, dark }) {
   return (
     <div style={{ maxWidth: 560 }}>
       <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Add Expense</h1>
@@ -618,7 +618,7 @@ function AddExpense({ th, form, setForm, addTransaction, categories, setTab, fmt
         ].map((f) => (
           <div key={f.key}>
             <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>{f.label}</label>
-            <input type={f.type} placeholder={f.placeholder} value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit", colorScheme: dark ? "dark" : "light" }} />
+            <input type={f.type} placeholder={f.placeholder} value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} style={{ width: "100%", background: th.surface2, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit", colorScheme: dark ? "dark" : "light" }} />
           </div>
         ))}
         <div>
