@@ -37,6 +37,7 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [monthlyBudget, setMonthlyBudget] = useState(3000);
   const [form, setForm] = useState({ name: "", amount: "", category: "Food", date: new Date().toISOString().split("T")[0] });
   const [toast, setToast] = useState(null);
 
@@ -56,6 +57,8 @@ export default function App() {
   }, []);
 
   async function loadData(userId) {
+    const savedBudget = localStorage.getItem(`fina_monthly_budget_${userId}`);
+    if (savedBudget) setMonthlyBudget(parseFloat(savedBudget));
     const [{ data: txns }, { data: cats }] = await Promise.all([
       supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: false }),
       supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
@@ -63,11 +66,15 @@ export default function App() {
     if (txns) setTransactions(txns);
     if (cats && cats.length > 0) setCategories(cats);
     else {
-      // Seed default categories for new users
       const defaultWithUser = DEFAULT_CATEGORIES.map(c => ({ ...c, user_id: userId }));
       const { data: seeded } = await supabase.from("categories").insert(defaultWithUser).select();
       if (seeded) setCategories(seeded);
     }
+  }
+
+  function updateMonthlyBudget(val) {
+    setMonthlyBudget(val);
+    if (session) localStorage.setItem(`fina_monthly_budget_${session.user.id}`, val);
   }
 
   function showToast(msg, type = "success") {
@@ -211,7 +218,7 @@ export default function App() {
 
       {/* Main */}
       <div style={{ marginLeft: 260, padding: "36px 40px", minHeight: "100vh", animation: "fadeUp 0.4s ease" }}>
-        {tab === "dashboard" && <Dashboard th={th} totalBudget={totalBudget} totalSpent={totalSpent} spentByCategory={spentByCategory} lineData={lineData} barData={barData} pieData={pieData} transactions={transactions} />}
+        {tab === "dashboard" && <Dashboard th={th} totalBudget={totalBudget} totalSpent={totalSpent} spentByCategory={spentByCategory} lineData={lineData} barData={barData} pieData={pieData} transactions={transactions} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} />}
         {tab === "transactions" && <Transactions th={th} transactions={transactions} deleteTransaction={deleteTransaction} categories={categories} />}
         {tab === "budget" && <Budget th={th} spentByCategory={spentByCategory} />}
         {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} categories={categories} setTab={setTab} />}
@@ -350,20 +357,66 @@ function Landing({ dark, setDark, th, onStart }) {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, barData, pieData, transactions }) {
-  const remaining = totalBudget - totalSpent;
-  const pct = Math.min((totalSpent / totalBudget) * 100, 100);
+function Dashboard({ th, totalBudget, totalSpent, spentByCategory, lineData, barData, pieData, transactions, monthlyBudget, updateMonthlyBudget }) {
+  const remaining = monthlyBudget - totalSpent;
+  const pct = Math.min((totalSpent / monthlyBudget) * 100, 100);
+  const catTotal = totalBudget;
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [budgetInput, setBudgetInput] = useState(monthlyBudget);
+  const isOver = totalSpent > monthlyBudget;
+  const catOver = catTotal > monthlyBudget;
 
   return (
     <div>
       <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: -0.5 }}>Dashboard</h1>
       <p style={{ color: th.muted, fontSize: 14, marginBottom: 32 }}>March 2026 — Your financial overview</p>
 
+      {/* Monthly Budget Setter */}
+      <div style={{ background: th.surface, border: `1.5px solid ${th.accent}44`, borderRadius: 20, padding: "20px 28px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+        <div>
+          <p style={{ color: th.muted, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Monthly Budget</p>
+          {editingBudget ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input type="number" value={budgetInput} onChange={(e) => setBudgetInput(e.target.value)}
+                style={{ background: th.bg, border: `1.5px solid ${th.accent}`, borderRadius: 10, padding: "8px 14px", color: th.text, fontSize: 22, fontWeight: 800, width: 160, outline: "none", fontFamily: "'Syne', sans-serif" }} />
+              <button onClick={() => { updateMonthlyBudget(parseFloat(budgetInput)); setEditingBudget(false); }}
+                style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>Save</button>
+              <button onClick={() => setEditingBudget(false)}
+                style={{ background: "transparent", color: th.muted, border: "none", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>Cancel</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 800, color: th.accent }}>{fmt(monthlyBudget)}</span>
+              <button onClick={() => { setBudgetInput(monthlyBudget); setEditingBudget(true); }}
+                style={{ background: th.accentSoft, color: th.accent, border: "none", borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 24 }}>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ color: th.muted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Spent</p>
+            <p style={{ fontSize: 18, fontWeight: 700, color: isOver ? "#FF6B6B" : th.text }}>{fmt(totalSpent)}</p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ color: th.muted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Remaining</p>
+            <p style={{ fontSize: 18, fontWeight: 700, color: isOver ? "#FF6B6B" : "#4ECDC4" }}>{fmt(remaining)}</p>
+          </div>
+        </div>
+        {catOver && (
+          <div style={{ width: "100%", background: "rgba(255,107,107,0.1)", border: "1px solid #FF6B6B44", borderRadius: 12, padding: "10px 16px", fontSize: 13, color: "#FF6B6B", fontWeight: 600 }}>
+            ⚠️ Your category budgets ({fmt(catTotal)}) exceed your monthly budget ({fmt(monthlyBudget)}). Consider adjusting your categories.
+          </div>
+        )}
+        <div style={{ width: "100%", background: th.surface2, borderRadius: 10, height: 8 }}>
+          <div style={{ width: `${pct}%`, height: "100%", borderRadius: 10, background: isOver ? "linear-gradient(90deg, #FF6B6B, #FF9999)" : `linear-gradient(90deg, ${th.accent}, #C084FC)`, transition: "width 0.8s ease" }} />
+        </div>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 28 }}>
         {[
-          { label: "Total Budget", value: fmt(totalBudget), sub: "This month", color: th.accent },
+          { label: "Monthly Budget", value: fmt(monthlyBudget), sub: "Your spending limit", color: th.accent },
           { label: "Total Spent", value: fmt(totalSpent), sub: `${pct.toFixed(0)}% of budget`, color: "#f0f0f0" },
-          { label: "Remaining", value: fmt(remaining), sub: remaining < 0 ? "Over budget!" : "Available", color: remaining < 0 ? "#FF6B6B" : "#4ECDC4" },
+          { label: "Remaining", value: fmt(remaining), sub: isOver ? "Over budget!" : "Available", color: isOver ? "#FF6B6B" : "#4ECDC4" },
         ].map((k) => (
           <div key={k.label} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: "24px 28px" }}>
             <p style={{ color: th.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>{k.label}</p>
