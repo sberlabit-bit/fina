@@ -332,50 +332,149 @@ function Landing({ dark, setDark, th, onStart }) {
   return (
     <div style={{ minHeight: "100vh", background: th.bg, fontFamily: "'DM Sans', sans-serif", color: th.text, transition: "background 0.3s" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
-      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } } * { box-sizing:border-box; margin:0; padding:0 }`}</style>
+      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } } * { box-sizing:border-box; margin:0; padding:0 } button:hover { opacity:0.85 }`}</style>
 
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "24px 60px", borderBottom: `1px solid ${th.border}` }}>
-        <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800, color: th.accent }}>Fina</div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      {/* Nav */}
+      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "24px 60px", borderBottom: `1px solid ${th.border}`, position: "sticky", top: 0, background: th.bg, zIndex: 100 }}>
+        <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800, color: th.accent }}>Befined</div>
+        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
           <div onClick={() => setDark(!dark)} style={{ width: 44, height: 24, borderRadius: 12, background: dark ? th.accent : "#ddd", position: "relative", cursor: "pointer", transition: "background 0.3s" }}>
             <div style={{ position: "absolute", top: 2, left: dark ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left 0.3s" }} />
           </div>
+          <a href="#pricing" style={{ color: th.muted, fontSize: 14, fontWeight: 500, textDecoration: "none" }}>Pricing</a>
           <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Get Started →</button>
         </div>
       </nav>
 
+      {/* Hero */}
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "100px 40px 80px", animation: "fadeUp 0.6s ease" }}>
-        <div style={{ display: "inline-block", background: th.accentSoft, color: th.accent, borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 28 }}>Free Budget Tracker</div>
+        <div style={{ display: "inline-block", background: th.accentSoft, color: th.accent, borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 28 }}>Free to start · No credit card needed</div>
         <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(42px, 7vw, 80px)", fontWeight: 800, lineHeight: 1.05, letterSpacing: -2, marginBottom: 24, maxWidth: 700 }}>
           Be <span style={{ color: th.accent }}>fine</span> with<br />your finances.
         </h1>
-        <p style={{ fontSize: 18, color: th.muted, maxWidth: 480, lineHeight: 1.7, marginBottom: 44, fontWeight: 400 }}>
-          A clean, fast expense tracker with smart budgets, visual charts, and custom categories. Built for people who actually want to save.
+        <p style={{ fontSize: 18, color: th.muted, maxWidth: 500, lineHeight: 1.7, marginBottom: 44, fontWeight: 400 }}>
+          A clean, fast budget tracker with visual charts, smart categories and multi-currency support. Built for people who actually want to save money.
         </p>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
           <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 14, padding: "16px 36px", fontSize: 16, fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 32px rgba(124,111,247,0.35)" }}>Get Started — It's Free</button>
+          <a href="#how-it-works" style={{ color: th.muted, fontSize: 15, fontWeight: 500, textDecoration: "none" }}>See how it works ↓</a>
+        </div>
+
+        {/* Social proof */}
+        <div style={{ marginTop: 60, display: "flex", gap: 40, flexWrap: "wrap" }}>
+          {[["🌍", "7 currencies", "EUR, USD, GBP & more"], ["📊", "Visual charts", "Track spending at a glance"], ["🔐", "100% private", "Your data, only yours"]].map(([icon, title, sub]) => (
+            <div key={title} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 24 }}>{icon}</span>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 14 }}>{title}</p>
+                <p style={{ color: th.muted, fontSize: 12 }}>{sub}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
+      {/* Features */}
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 40px 100px" }}>
+        <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, letterSpacing: -1, marginBottom: 12 }}>Everything you need</h2>
+          <p style={{ color: th.muted, fontSize: 16 }}>No fluff. Just the tools to help you spend smarter.</p>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
           {[
-            { icon: "📊", title: "Visual Charts", desc: "Line, bar, and donut charts show exactly where your budget stands at a glance." },
-            { icon: "🏷️", title: "Custom Categories", desc: "Create your own spending categories with custom icons, colors and budget limits." },
-            { icon: "🔐", title: "Your Data, Private", desc: "Sign in securely. Your expenses are private and only visible to you." },
+            { icon: "📊", title: "Visual Charts", desc: "Line, bar, and donut charts show exactly where your money goes at a glance." },
+            { icon: "🏷️", title: "Custom Categories", desc: "Create spending categories with custom icons, colors and monthly budget limits." },
+            { icon: "💱", title: "Multi-Currency", desc: "Track expenses in EUR, USD, GBP, JPY, CHF, CAD or AUD — your choice." },
+            { icon: "🎯", title: "Budget Goals", desc: "Set a monthly spending limit and get instant warnings when you're close." },
+            { icon: "📱", title: "Works Everywhere", desc: "Access Befined from any device — desktop, tablet or mobile browser." },
+            { icon: "🔐", title: "100% Private", desc: "Your data is encrypted and private. Only you can see your expenses." },
           ].map((f) => (
             <div key={f.title} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 28 }}>
               <div style={{ fontSize: 32, marginBottom: 14 }}>{f.icon}</div>
-              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>{f.title}</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{f.title}</h3>
               <p style={{ color: th.muted, fontSize: 14, lineHeight: 1.6 }}>{f.desc}</p>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ borderTop: `1px solid ${th.border}`, padding: "24px 60px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, color: th.accent }}>Fina</span>
-        <span style={{ color: th.muted, fontSize: 13 }}>© 2026 · Fine with your finances</span>
+      {/* How it works */}
+      <div id="how-it-works" style={{ background: th.surface, borderTop: `1px solid ${th.border}`, borderBottom: `1px solid ${th.border}`, padding: "80px 40px" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, letterSpacing: -1, marginBottom: 12 }}>How it works</h2>
+            <p style={{ color: th.muted, fontSize: 16 }}>Up and running in under 2 minutes.</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 40 }}>
+            {[
+              { step: "01", title: "Create your account", desc: "Sign up for free with just your email. No credit card required to get started." },
+              { step: "02", title: "Set your budget", desc: "Enter your monthly spending limit and create categories that match your lifestyle." },
+              { step: "03", title: "Track your expenses", desc: "Log expenses as you go and watch your charts update in real time." },
+            ].map((s) => (
+              <div key={s.step} style={{ textAlign: "center" }}>
+                <div style={{ width: 56, height: 56, borderRadius: 16, background: th.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 16, color: th.accent }}>{s.step}</div>
+                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>{s.title}</h3>
+                <p style={{ color: th.muted, fontSize: 14, lineHeight: 1.7 }}>{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Pricing */}
+      <div id="pricing" style={{ maxWidth: 960, margin: "0 auto", padding: "80px 40px" }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, letterSpacing: -1, marginBottom: 12 }}>Simple pricing</h2>
+          <p style={{ color: th.muted, fontSize: 16 }}>Start free. Upgrade when you're ready.</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, maxWidth: 700, margin: "0 auto" }}>
+          {/* Free */}
+          <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 24, padding: 36 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, marginBottom: 12 }}>Free</p>
+            <p style={{ fontFamily: "'Syne', sans-serif", fontSize: 42, fontWeight: 800, marginBottom: 4 }}>€0</p>
+            <p style={{ color: th.muted, fontSize: 13, marginBottom: 28 }}>Forever free</p>
+            {["Up to 50 transactions/month", "3 custom categories", "Basic charts", "All currencies"].map(f => (
+              <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <span style={{ color: "#4ECDC4", fontWeight: 700 }}>✓</span>
+                <span style={{ fontSize: 14, color: th.muted }}>{f}</span>
+              </div>
+            ))}
+            <button onClick={onStart} style={{ width: "100%", marginTop: 24, padding: "14px", background: "transparent", border: `1.5px solid ${th.border}`, borderRadius: 12, color: th.text, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Get Started Free</button>
+          </div>
+          {/* Pro */}
+          <div style={{ background: th.accent, border: `1px solid ${th.accent}`, borderRadius: 24, padding: 36, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, color: "#fff" }}>POPULAR</div>
+            <p style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "rgba(255,255,255,0.7)", marginBottom: 12 }}>Pro</p>
+            <p style={{ fontFamily: "'Syne', sans-serif", fontSize: 42, fontWeight: 800, color: "#fff", marginBottom: 4 }}>€4.99</p>
+            <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, marginBottom: 28 }}>per month</p>
+            {["Unlimited transactions", "Unlimited categories", "All charts & analytics", "All currencies", "Priority support"].map(f => (
+              <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <span style={{ color: "#fff", fontWeight: 700 }}>✓</span>
+                <span style={{ fontSize: 14, color: "rgba(255,255,255,0.9)" }}>{f}</span>
+              </div>
+            ))}
+            <button onClick={onStart} style={{ width: "100%", marginTop: 24, padding: "14px", background: "#fff", border: "none", borderRadius: 12, color: th.accent, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Start Free Trial</button>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div style={{ background: th.accentSoft, borderTop: `1px solid ${th.border}`, padding: "80px 40px", textAlign: "center" }}>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, letterSpacing: -1, marginBottom: 16 }}>Ready to be fine with your finances?</h2>
+        <p style={{ color: th.muted, fontSize: 16, marginBottom: 36 }}>Join for free today. No credit card required.</p>
+        <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 14, padding: "16px 48px", fontSize: 16, fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 32px rgba(124,111,247,0.35)" }}>Get Started Free →</button>
+      </div>
+
+      {/* Footer */}
+      <div style={{ borderTop: `1px solid ${th.border}`, padding: "32px 60px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+        <div>
+          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, color: th.accent, fontSize: 18 }}>Befined</span>
+          <p style={{ color: th.muted, fontSize: 12, marginTop: 4 }}>Be fine with your finances.</p>
+        </div>
+        <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+          <a href="mailto:hello@befined.com" style={{ color: th.muted, fontSize: 13, textDecoration: "none" }}>hello@befined.com</a>
+          <span style={{ color: th.muted, fontSize: 13 }}>© 2026 Befined</span>
+        </div>
       </div>
     </div>
   );
