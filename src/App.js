@@ -51,6 +51,7 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [recurring, setRecurring] = useState([]);
   const [monthlyBudget, setMonthlyBudget] = useState(3000);
   const [currency, setCurrency] = useState("EUR");
   const [form, setForm] = useState({ name: "", amount: "", category: "Food", date: new Date().toISOString().split("T")[0] });
@@ -78,11 +79,13 @@ export default function App() {
     if (savedBudget) setMonthlyBudget(parseFloat(savedBudget));
     const savedCurrency = localStorage.getItem(`fina_currency_${userId}`);
     if (savedCurrency) setCurrency(savedCurrency);
-    const [{ data: txns }, { data: cats }] = await Promise.all([
+    const [{ data: txns }, { data: cats }, { data: recs }] = await Promise.all([
       supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: false }),
       supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+      supabase.from("recurring").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
     ]);
     if (txns) setTransactions(txns);
+    if (recs) setRecurring(recs);
     if (cats && cats.length > 0) setCategories(cats);
     else {
       const defaultWithUser = DEFAULT_CATEGORIES.map(c => ({ ...c, user_id: userId }));
@@ -99,6 +102,31 @@ export default function App() {
   function updateCurrency(val) {
     setCurrency(val);
     if (session) localStorage.setItem(`fina_currency_${session.user.id}`, val);
+  }
+
+  async function addRecurring(rec) {
+    const { data, error } = await supabase.from("recurring").insert({ ...rec, user_id: session.user.id }).select().single();
+    if (error) return showToast("Error adding recurring payment", "error");
+    setRecurring([...recurring, data]);
+    showToast(`${rec.icon} ${rec.name} added!`);
+  }
+
+  async function deleteRecurring(id) {
+    await supabase.from("recurring").delete().eq("id", id);
+    setRecurring(recurring.filter(r => r.id !== id));
+    showToast("Removed");
+  }
+
+  async function logRecurring(rec) {
+    const today = new Date().toISOString().split("T")[0];
+    const monthKey = today.slice(0, 7);
+    const alreadyLogged = transactions.some(t => t.recurring_id === rec.id && t.date.startsWith(monthKey));
+    if (alreadyLogged) return showToast("Already added this month!", "error");
+    const newT = { name: rec.name, amount: rec.amount, category: rec.category, date: today, user_id: session.user.id, recurring_id: rec.id };
+    const { data, error } = await supabase.from("transactions").insert(newT).select().single();
+    if (error) return showToast("Error logging payment", "error");
+    setTransactions([data, ...transactions]);
+    showToast(`${rec.icon} ${rec.name} logged! ✓`);
   }
 
   function showToast(msg, type = "success") {
@@ -213,6 +241,7 @@ export default function App() {
           { id: "transactions", icon: "⊟", label: "Transactions" },
           { id: "budget", icon: "◎", label: "Budget" },
           { id: "add", icon: "+", label: "Add Expense" },
+          { id: "recurring", icon: "↻", label: "Recurring" },
           { id: "categories", icon: "⊞", label: "Categories" },
           { id: "settings", icon: "⚙", label: "Settings" },
         ].map((item) => (
@@ -247,6 +276,7 @@ export default function App() {
         {tab === "transactions" && <Transactions th={th} transactions={transactions} deleteTransaction={deleteTransaction} categories={categories} fmt={fmt} />}
         {tab === "budget" && <Budget th={th} spentByCategory={spentByCategory} fmt={fmt} />}
         {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} categories={categories} setTab={setTab} fmt={fmt} dark={dark} />}
+        {tab === "recurring" && <Recurring th={th} recurring={recurring} addRecurring={addRecurring} deleteRecurring={deleteRecurring} logRecurring={logRecurring} transactions={transactions} categories={categories} fmt={fmt} showToast={showToast} />}
         {tab === "categories" && <Categories th={th} categories={categories} addCategory={addCategory} deleteCategory={deleteCategory} showToast={showToast} fmt={fmt} />}
         {tab === "settings" && <Settings th={th} currency={currency} updateCurrency={updateCurrency} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} fmt={fmt} dark={dark} setDark={setDark} />}
       </div>
@@ -896,6 +926,121 @@ function Settings({ th, currency, updateCurrency, monthlyBudget, updateMonthlyBu
         </div>
 
       </div>
+    </div>
+  );
+}
+
+// ─── Recurring ────────────────────────────────────────────────────────────────
+
+function Recurring({ th, recurring, addRecurring, deleteRecurring, logRecurring, transactions, categories, fmt, showToast }) {
+  const [showForm, setShowForm] = useState(false);
+  const [newRec, setNewRec] = useState({ name: "", amount: "", category: "", icon: "🔄" });
+  const today = new Date().toISOString().split("T")[0];
+  const monthKey = today.slice(0, 7);
+
+  function isLoggedThisMonth(rec) {
+    return transactions.some(t => t.recurring_id === rec.id && t.date && t.date.startsWith(monthKey));
+  }
+
+  function handleAdd() {
+    if (!newRec.name.trim() || !newRec.amount || !newRec.category) return showToast("Please fill in all fields", "error");
+    addRecurring({ ...newRec, amount: parseFloat(newRec.amount) });
+    setNewRec({ name: "", amount: "", category: "", icon: "🔄" });
+    setShowForm(false);
+  }
+
+  const totalRecurring = recurring.reduce((s, r) => s + r.amount, 0);
+  const loggedCount = recurring.filter(r => isLoggedThisMonth(r)).length;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Recurring Payments</h1>
+        <button onClick={() => setShowForm(!showForm)} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          {showForm ? "✕ Cancel" : "+ Add Recurring"}
+        </button>
+      </div>
+      <p style={{ color: th.muted, fontSize: 14, marginBottom: 28 }}>Fixed monthly payments — log them all with one click</p>
+
+      {/* Summary */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
+        {[
+          { label: "Total Recurring", value: fmt(totalRecurring), sub: "per month", color: th.accent },
+          { label: "Logged This Month", value: `${loggedCount} / ${recurring.length}`, sub: "payments done", color: "#4ECDC4" },
+          { label: "Remaining to Log", value: fmt(recurring.filter(r => !isLoggedThisMonth(r)).reduce((s, r) => s + r.amount, 0)), sub: "still to add", color: recurring.some(r => !isLoggedThisMonth(r)) ? "#FFD93D" : "#4ECDC4" },
+        ].map(k => (
+          <div key={k.label} style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 18, padding: "20px 24px" }}>
+            <p style={{ color: th.muted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{k.label}</p>
+            <p style={{ fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800, color: k.color }}>{k.value}</p>
+            <p style={{ color: th.muted, fontSize: 12, marginTop: 4 }}>{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Add Form */}
+      {showForm && (
+        <div style={{ background: th.surface, border: `1.5px solid ${th.accent}44`, borderRadius: 20, padding: 28, marginBottom: 28 }}>
+          <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>↻ New Recurring Payment</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Name</label>
+              <input value={newRec.name} onChange={e => setNewRec({ ...newRec, name: e.target.value })} placeholder="e.g. Netflix, Rent" style={{ width: "100%", background: th.surface2, border: `1.5px solid ${th.border}`, borderRadius: 12, padding: "12px 16px", color: th.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Amount</label>
+              <input type="number" value={newRec.amount} onChange={e => setNewRec({ ...newRec, amount: e.target.value })} placeholder="e.g. 9.99" style={{ width: "100%", background: th.surface2, border: `1.5px solid ${th.border}`, borderRadius: 12, padding: "12px 16px", color: th.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 10 }}>Category</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {categories.map(cat => (
+                <button key={cat.name} onClick={() => setNewRec({ ...newRec, category: cat.name, icon: cat.icon })} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit", background: newRec.category === cat.name ? `${cat.color}22` : th.bg, border: `1.5px solid ${newRec.category === cat.name ? cat.color : th.border}`, color: newRec.category === cat.name ? cat.color : th.muted, fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}>
+                  {cat.icon} {cat.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button onClick={handleAdd} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "13px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            Add Recurring Payment →
+          </button>
+        </div>
+      )}
+
+      {/* List */}
+      {recurring.length === 0 ? (
+        <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 48, textAlign: "center" }}>
+          <p style={{ fontSize: 32, marginBottom: 12 }}>↻</p>
+          <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>No recurring payments yet</p>
+          <p style={{ color: th.muted, fontSize: 14 }}>Add your fixed monthly expenses like rent, subscriptions, leasing...</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {recurring.map(rec => {
+            const logged = isLoggedThisMonth(rec);
+            const cat = categories.find(c => c.name === rec.category);
+            return (
+              <div key={rec.id} style={{ background: th.surface, border: `1px solid ${logged ? "#4ECDC444" : th.border}`, borderRadius: 18, padding: "18px 24px", display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, background: `${cat?.color || "#7C6FF7"}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{rec.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 700, fontSize: 15 }}>{rec.name}</p>
+                  <p style={{ color: th.muted, fontSize: 13, marginTop: 2 }}>{rec.category} · {fmt(rec.amount)}/mo</p>
+                </div>
+                {logged ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#4ECDC422", border: "1px solid #4ECDC444", borderRadius: 10, padding: "8px 16px" }}>
+                    <span style={{ color: "#4ECDC4", fontWeight: 700, fontSize: 13 }}>✓ Logged this month</span>
+                  </div>
+                ) : (
+                  <button onClick={() => logRecurring(rec)} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 12px rgba(124,111,247,0.3)", whiteSpace: "nowrap" }}>
+                    + Log for {new Date().toLocaleString("default", { month: "short" })}
+                  </button>
+                )}
+                <button onClick={() => deleteRecurring(rec.id)} style={{ background: "rgba(255,107,107,0.1)", border: "none", color: "#FF6B6B", borderRadius: 10, width: 36, height: 36, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
