@@ -227,13 +227,21 @@ export default function App() {
         * { box-sizing: border-box; margin: 0; padding: 0 }
         input, select { font-family: inherit }
         button:hover { opacity: 0.85 }
+        .sidebar { display: flex; }
+        .bottom-nav { display: none; }
+        .main-content { margin-left: 260px; padding: 36px 40px; }
+        @media (max-width: 768px) {
+          .sidebar { display: none !important; }
+          .bottom-nav { display: flex !important; }
+          .main-content { margin-left: 0 !important; padding: 20px 16px 90px !important; }
+        }
       `}</style>
 
-      {/* Sidebar */}
-      <div style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 260, background: th.surface, borderRight: `1px solid ${th.border}`, display: "flex", flexDirection: "column", padding: "28px 16px", zIndex: 100, transition: "background 0.3s" }}>
+      {/* Sidebar — desktop */}
+      <div className="sidebar" style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 260, background: th.surface, borderRight: `1px solid ${th.border}`, flexDirection: "column", padding: "28px 16px", zIndex: 100, transition: "background 0.3s" }}>
         <div style={{ marginBottom: 40, paddingLeft: 8 }}>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, color: th.accent, letterSpacing: -0.5 }}>Fina</div>
-          <div style={{ fontSize: 11, color: th.muted, fontWeight: 500, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Fine with your finances</div>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, color: th.accent, letterSpacing: -0.5 }}>Befined</div>
+          <div style={{ fontSize: 11, color: th.muted, fontWeight: 500, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>Be fine with your finances</div>
         </div>
 
         {[
@@ -270,8 +278,24 @@ export default function App() {
         </div>
       </div>
 
+      {/* Bottom Nav — mobile */}
+      <div className="bottom-nav" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: th.surface, borderTop: `1px solid ${th.border}`, zIndex: 100, padding: "8px 0", justifyContent: "space-around", alignItems: "center" }}>
+        {[
+          { id: "dashboard", icon: "◈", label: "Home" },
+          { id: "transactions", icon: "⊟", label: "Txns" },
+          { id: "add", icon: "+", label: "Add" },
+          { id: "recurring", icon: "↻", label: "Fixed" },
+          { id: "settings", icon: "⚙", label: "Settings" },
+        ].map((item) => (
+          <button key={item.id} onClick={() => setTab(item.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: "transparent", border: "none", cursor: "pointer", color: tab === item.id ? th.accent : th.muted, padding: "6px 12px", borderRadius: 10, fontFamily: "inherit" }}>
+            <span style={{ fontSize: 20 }}>{item.icon}</span>
+            <span style={{ fontSize: 10, fontWeight: 600 }}>{item.label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Main */}
-      <div style={{ marginLeft: 260, padding: "36px 40px", minHeight: "100vh", animation: "fadeUp 0.4s ease" }}>
+      <div className="main-content" style={{ minHeight: "100vh", animation: "fadeUp 0.4s ease" }}>
         {tab === "dashboard" && <Dashboard th={th} totalBudget={totalBudget} totalSpent={totalSpent} spentByCategory={spentByCategory} lineData={lineData} barData={barData} pieData={pieData} transactions={transactions} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} fmt={fmt} dark={dark} />}
         {tab === "transactions" && <Transactions th={th} transactions={transactions} deleteTransaction={deleteTransaction} categories={categories} fmt={fmt} />}
         {tab === "budget" && <Budget th={th} spentByCategory={spentByCategory} fmt={fmt} />}
