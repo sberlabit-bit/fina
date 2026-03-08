@@ -278,7 +278,7 @@ export default function App() {
         {tab === "add" && <AddExpense th={th} form={form} setForm={setForm} addTransaction={addTransaction} categories={categories} setTab={setTab} fmt={fmt} dark={dark} />}
         {tab === "recurring" && <Recurring th={th} recurring={recurring} addRecurring={addRecurring} deleteRecurring={deleteRecurring} logRecurring={logRecurring} transactions={transactions} categories={categories} fmt={fmt} showToast={showToast} />}
         {tab === "categories" && <Categories th={th} categories={categories} addCategory={addCategory} deleteCategory={deleteCategory} showToast={showToast} fmt={fmt} />}
-        {tab === "settings" && <Settings th={th} currency={currency} updateCurrency={updateCurrency} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} fmt={fmt} dark={dark} setDark={setDark} />}
+        {tab === "settings" && <Settings th={th} currency={currency} updateCurrency={updateCurrency} monthlyBudget={monthlyBudget} updateMonthlyBudget={updateMonthlyBudget} fmt={fmt} dark={dark} setDark={setDark} supabase={supabase} showToast={showToast} />}
       </div>
     </div>
   );
@@ -293,6 +293,15 @@ function Auth({ th, dark, setDark, supabase, showToast, setPage, toast }) {
   const [loading, setLoading] = useState(false);
 
   async function handleAuth() {
+    if (mode === "forgot") {
+      if (!email) return showToast("Please enter your email", "error");
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: "https://befined.com/" });
+      if (error) showToast(error.message, "error");
+      else showToast("Reset email sent! Check your inbox ✓");
+      setLoading(false);
+      return;
+    }
     if (!email || !password) return showToast("Please fill in all fields", "error");
     setLoading(true);
     if (mode === "login") {
@@ -317,34 +326,57 @@ function Auth({ th, dark, setDark, supabase, showToast, setPage, toast }) {
 
       <div style={{ width: "100%", maxWidth: 420, padding: 24, animation: "fadeUp 0.4s ease" }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 32, fontWeight: 800, color: th.accent, marginBottom: 8 }}>Fina</div>
-          <p style={{ color: th.muted, fontSize: 14 }}>Fine with your finances</p>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 32, fontWeight: 800, color: th.accent, marginBottom: 8 }}>Befined</div>
+          <p style={{ color: th.muted, fontSize: 14 }}>Be fine with your finances</p>
         </div>
 
         <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 24, padding: 32 }}>
-          {/* Toggle */}
-          <div style={{ display: "flex", background: th.surface2, borderRadius: 14, padding: 4, marginBottom: 28 }}>
-            {["login", "signup"].map((m) => (
-              <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", background: mode === m ? th.accent : "transparent", color: mode === m ? "#fff" : th.muted, fontSize: 14, fontWeight: 600, fontFamily: "inherit", transition: "all 0.2s" }}>
-                {m === "login" ? "Sign In" : "Sign Up"}
-              </button>
-            ))}
-          </div>
+          {mode !== "forgot" && (
+            <div style={{ display: "flex", background: th.surface2, borderRadius: 14, padding: 4, marginBottom: 28 }}>
+              {["login", "signup"].map((m) => (
+                <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", background: mode === m ? th.accent : "transparent", color: mode === m ? "#fff" : th.muted, fontSize: 14, fontWeight: 600, fontFamily: "inherit", transition: "all 0.2s" }}>
+                  {m === "login" ? "Sign In" : "Sign Up"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {mode === "forgot" && (
+            <div style={{ marginBottom: 24 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Reset your password</h3>
+              <p style={{ color: th.muted, fontSize: 13 }}>Enter your email and we'll send you a reset link.</p>
+            </div>
+          )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Email</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit" }} />
             </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit" }}
-                onKeyDown={(e) => e.key === "Enter" && handleAuth()} />
-            </div>
 
-            <button onClick={handleAuth} disabled={loading} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 14, padding: "16px", fontSize: 15, fontWeight: 700, cursor: "pointer", marginTop: 8, boxShadow: "0 8px 24px rgba(124,111,247,0.35)", fontFamily: "inherit", opacity: loading ? 0.7 : 1 }}>
-              {loading ? "Loading..." : mode === "login" ? "Sign In →" : "Create Account →"}
+            {mode !== "forgot" && (
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Password</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 14, padding: "14px 18px", color: th.text, fontSize: 15, outline: "none", fontFamily: "inherit" }}
+                  onKeyDown={(e) => e.key === "Enter" && handleAuth()} />
+              </div>
+            )}
+
+            {mode === "login" && (
+              <button onClick={() => setMode("forgot")} style={{ background: "none", border: "none", color: th.accent, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "right", fontFamily: "inherit", padding: 0 }}>
+                Forgot password?
+              </button>
+            )}
+
+            <button onClick={handleAuth} disabled={loading} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 14, padding: "16px", fontSize: 15, fontWeight: 700, cursor: "pointer", marginTop: 4, boxShadow: "0 8px 24px rgba(124,111,247,0.35)", fontFamily: "inherit", opacity: loading ? 0.7 : 1 }}>
+              {loading ? "Loading..." : mode === "login" ? "Sign In →" : mode === "signup" ? "Create Account →" : "Send Reset Email →"}
             </button>
+
+            {mode === "forgot" && (
+              <button onClick={() => setMode("login")} style={{ background: "none", border: "none", color: th.muted, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                ← Back to Sign In
+              </button>
+            )}
           </div>
         </div>
 
@@ -855,14 +887,28 @@ function Categories({ th, categories, addCategory, deleteCategory, showToast, fm
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
-function Settings({ th, currency, updateCurrency, monthlyBudget, updateMonthlyBudget, fmt, dark, setDark }) {
+function Settings({ th, currency, updateCurrency, monthlyBudget, updateMonthlyBudget, fmt, dark, setDark, supabase, showToast }) {
   const [budgetInput, setBudgetInput] = useState(monthlyBudget);
   const [saved, setSaved] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
 
   function handleSave() {
     updateMonthlyBudget(parseFloat(budgetInput));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  async function handleChangePassword() {
+    if (!newPassword || !confirmPassword) return showToast("Please fill in both fields", "error");
+    if (newPassword !== confirmPassword) return showToast("Passwords don't match", "error");
+    if (newPassword.length < 6) return showToast("Password must be at least 6 characters", "error");
+    setPwLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) showToast(error.message, "error");
+    else { showToast("Password updated! ✓"); setNewPassword(""); setConfirmPassword(""); }
+    setPwLoading(false);
   }
 
   return (
@@ -922,6 +968,25 @@ function Settings({ th, currency, updateCurrency, monthlyBudget, updateMonthlyBu
                 fontWeight: 600, fontSize: 14, transition: "all 0.15s",
               }}>{t.label}</div>
             ))}
+          </div>
+        </div>
+
+        {/* Change Password */}
+        <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 28 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🔐 Change Password</h3>
+          <p style={{ color: th.muted, fontSize: 13, marginBottom: 20 }}>Update your account password</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>New Password</label>
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 12, padding: "12px 16px", color: th.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, display: "block", marginBottom: 8 }}>Confirm Password</label>
+              <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••••" style={{ width: "100%", background: th.bg, border: `1.5px solid ${th.border}`, borderRadius: 12, padding: "12px 16px", color: th.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+            </div>
+            <button onClick={handleChangePassword} disabled={pwLoading} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "13px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: pwLoading ? 0.7 : 1 }}>
+              {pwLoading ? "Updating..." : "Update Password →"}
+            </button>
           </div>
         </div>
 
