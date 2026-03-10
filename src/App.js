@@ -1018,6 +1018,15 @@ function Settings({ th, currency, updateCurrency, monthlyBudget, updateMonthlyBu
           </div>
         </div>
 
+        {/* Subscription */}
+        <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 20, padding: 28 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>⚡ Subscription</h3>
+          <p style={{ color: th.muted, fontSize: 13, marginBottom: 20 }}>Manage your Befined Pro subscription, update payment method or cancel anytime</p>
+          <button onClick={() => window.open("https://billing.stripe.com/p/login/eVqaEQ1v51TQ86x2dpgrS00", "_blank")} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "13px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            Manage Subscription →
+          </button>
+        </div>
+
       </div>
     </div>
   );
