@@ -275,7 +275,7 @@ export default function App() {
           <button onClick={signOut} style={{ width: "100%", padding: "10px 14px", background: "rgba(255,107,107,0.1)", border: "none", cursor: "pointer", color: "#FF6B6B", fontSize: 13, fontWeight: 600, textAlign: "left", borderRadius: 12, fontFamily: "inherit" }}>
             → Sign Out
           </button>
-          <div onClick={() => window.open("https://buy.stripe.com/test_aFa4gs7IHcodaT7bPL0VO00", "_blank")} style={{ marginTop: 8, background: "linear-gradient(135deg, #7C6FF7, #C084FC)", borderRadius: 12, padding: "12px 14px", cursor: "pointer" }}>
+          <div onClick={() => window.open("https://buy.stripe.com/eVqaEQ1v51TQ86x2dpgrS00", "_blank")} style={{ marginTop: 8, background: "linear-gradient(135deg, #7C6FF7, #C084FC)", borderRadius: 12, padding: "12px 14px", cursor: "pointer" }}>
             <p style={{ color: "#fff", fontSize: 12, fontWeight: 800, letterSpacing: 0.5 }}>⚡ Upgrade to Pro</p>
             <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 11, marginTop: 2 }}>Unlimited everything · €4.99/mo</p>
           </div>
@@ -543,7 +543,7 @@ function Landing({ dark, setDark, th, onStart }) {
                 <span style={{ fontSize: 14, color: "rgba(255,255,255,0.9)" }}>{f}</span>
               </div>
             ))}
-            <button onClick={() => window.open("https://buy.stripe.com/test_aFa4gs7IHcodaT7bPL0VO00", "_blank")} style={{ width: "100%", marginTop: 24, padding: "14px", background: "#fff", border: "none", borderRadius: 12, color: th.accent, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Start Free Trial</button>
+            <button onClick={() => window.open("https://buy.stripe.com/eVqaEQ1v51TQ86x2dpgrS00", "_blank")} style={{ width: "100%", marginTop: 24, padding: "14px", background: "#fff", border: "none", borderRadius: 12, color: th.accent, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Start Free Trial</button>
           </div>
         </div>
       </div>
