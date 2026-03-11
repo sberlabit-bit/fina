@@ -422,27 +422,55 @@ function Landing({ dark, setDark, th, onStart }) {
   return (
     <div style={{ minHeight: "100vh", background: th.bg, fontFamily: "'DM Sans', sans-serif", color: th.text, transition: "background 0.3s" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
-      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } } * { box-sizing:border-box; margin:0; padding:0 } button:hover { opacity:0.85 }`}</style>
+      <style>{`
+        @keyframes fadeUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } }
+        * { box-sizing:border-box; margin:0; padding:0 }
+        button:hover { opacity:0.85 }
+        html, body { overflow-x: hidden; max-width: 100vw; }
+        .landing-nav { padding: 20px 24px !important; }
+        .landing-nav-links { gap: 10px !important; }
+        .landing-nav-links a { display: none; }
+        .hero-section { padding: 60px 20px 60px !important; }
+        .hero-h1 { font-size: clamp(32px, 8vw, 80px) !important; letter-spacing: -1px !important; }
+        .features-grid { grid-template-columns: 1fr !important; }
+        .hiw-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
+        .pricing-grid { grid-template-columns: 1fr !important; }
+        .section-pad { padding: 60px 20px !important; }
+        .footer-inner { padding: 24px 20px !important; flex-direction: column !important; text-align: center !important; }
+        @media (min-width: 640px) {
+          .landing-nav { padding: 24px 40px !important; }
+          .landing-nav-links a { display: inline !important; }
+          .hero-section { padding: 100px 40px 80px !important; }
+          .features-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .hiw-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .pricing-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .section-pad { padding: 80px 40px !important; }
+          .footer-inner { padding: 32px 60px !important; flex-direction: row !important; text-align: left !important; }
+        }
+        @media (min-width: 960px) {
+          .features-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+      `}</style>
 
       {/* Nav */}
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "24px 60px", borderBottom: `1px solid ${th.border}`, position: "sticky", top: 0, background: th.bg, zIndex: 100 }}>
+      <nav className="landing-nav" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${th.border}`, position: "sticky", top: 0, background: th.bg, zIndex: 100 }}>
         <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800, color: th.accent }}>Befined</div>
-        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-          <div onClick={() => setDark(!dark)} style={{ width: 44, height: 24, borderRadius: 12, background: dark ? th.accent : "#ddd", position: "relative", cursor: "pointer", transition: "background 0.3s" }}>
+        <div className="landing-nav-links" style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <div onClick={() => setDark(!dark)} style={{ width: 44, height: 24, borderRadius: 12, background: dark ? th.accent : "#ddd", position: "relative", cursor: "pointer", transition: "background 0.3s", flexShrink: 0 }}>
             <div style={{ position: "absolute", top: 2, left: dark ? 22 : 2, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left 0.3s" }} />
           </div>
           <a href="#pricing" style={{ color: th.muted, fontSize: 14, fontWeight: 500, textDecoration: "none" }}>Pricing</a>
-          <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Get Started →</button>
+          <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 12, padding: "10px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Get Started →</button>
         </div>
       </nav>
 
       {/* Hero */}
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "100px 40px 80px", animation: "fadeUp 0.6s ease" }}>
+      <div className="hero-section" style={{ maxWidth: 960, margin: "0 auto", animation: "fadeUp 0.6s ease" }}>
         <div style={{ display: "inline-block", background: th.accentSoft, color: th.accent, borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 28 }}>Free to start · No credit card needed</div>
-        <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(42px, 7vw, 80px)", fontWeight: 800, lineHeight: 1.05, letterSpacing: -2, marginBottom: 24, maxWidth: 700 }}>
+        <h1 className="hero-h1" style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, lineHeight: 1.05, marginBottom: 24, maxWidth: 700 }}>
           Be <span style={{ color: th.accent }}>fine</span> with<br />your finances.
         </h1>
-        <p style={{ fontSize: 18, color: th.muted, maxWidth: 500, lineHeight: 1.7, marginBottom: 44, fontWeight: 400 }}>
+        <p style={{ fontSize: 17, color: th.muted, maxWidth: 500, lineHeight: 1.7, marginBottom: 44, fontWeight: 400 }}>
           A clean, fast budget tracker with visual charts, smart categories and multi-currency support. Built for people who actually want to save money.
         </p>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
@@ -451,7 +479,7 @@ function Landing({ dark, setDark, th, onStart }) {
         </div>
 
         {/* Social proof */}
-        <div style={{ marginTop: 60, display: "flex", gap: 40, flexWrap: "wrap" }}>
+        <div style={{ marginTop: 60, display: "flex", gap: 32, flexWrap: "wrap" }}>
           {[["🌍", "7 currencies", "EUR, USD, GBP & more"], ["📊", "Visual charts", "Track spending at a glance"], ["🔐", "100% private", "Your data, only yours"]].map(([icon, title, sub]) => (
             <div key={title} style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ fontSize: 24 }}>{icon}</span>
@@ -465,12 +493,12 @@ function Landing({ dark, setDark, th, onStart }) {
       </div>
 
       {/* Features */}
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 40px 100px" }}>
+      <div className="section-pad" style={{ maxWidth: 960, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, letterSpacing: -1, marginBottom: 12 }}>Everything you need</h2>
           <p style={{ color: th.muted, fontSize: 16 }}>No fluff. Just the tools to help you spend smarter.</p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+        <div className="features-grid" style={{ display: "grid", gap: 24 }}>
           {[
             { icon: "📊", title: "Visual Charts", desc: "Line, bar, and donut charts show exactly where your money goes at a glance." },
             { icon: "🏷️", title: "Custom Categories", desc: "Create spending categories with custom icons, colors and monthly budget limits." },
@@ -489,13 +517,13 @@ function Landing({ dark, setDark, th, onStart }) {
       </div>
 
       {/* How it works */}
-      <div id="how-it-works" style={{ background: th.surface, borderTop: `1px solid ${th.border}`, borderBottom: `1px solid ${th.border}`, padding: "80px 40px" }}>
-        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+      <div id="how-it-works" style={{ background: th.surface, borderTop: `1px solid ${th.border}`, borderBottom: `1px solid ${th.border}` }}>
+        <div className="section-pad" style={{ maxWidth: 960, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }}>
             <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, letterSpacing: -1, marginBottom: 12 }}>How it works</h2>
             <p style={{ color: th.muted, fontSize: 16 }}>Up and running in under 2 minutes.</p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 40 }}>
+          <div className="hiw-grid" style={{ display: "grid", gap: 40 }}>
             {[
               { step: "01", title: "Create your account", desc: "Sign up for free with just your email. No credit card required to get started." },
               { step: "02", title: "Set your budget", desc: "Enter your monthly spending limit and create categories that match your lifestyle." },
@@ -512,12 +540,13 @@ function Landing({ dark, setDark, th, onStart }) {
       </div>
 
       {/* Pricing */}
-      <div id="pricing" style={{ maxWidth: 960, margin: "0 auto", padding: "80px 40px" }}>
+      <div id="pricing" style={{ maxWidth: 960, margin: "0 auto" }}>
+        <div className="section-pad">
         <div style={{ textAlign: "center", marginBottom: 56 }}>
           <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, letterSpacing: -1, marginBottom: 12 }}>Simple pricing</h2>
           <p style={{ color: th.muted, fontSize: 16 }}>Start free. Upgrade when you're ready.</p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, maxWidth: 700, margin: "0 auto" }}>
+        <div className="pricing-grid" style={{ display: "grid", gap: 24, maxWidth: 700, margin: "0 auto" }}>
           {/* Free */}
           <div style={{ background: th.surface, border: `1px solid ${th.border}`, borderRadius: 24, padding: 36 }}>
             <p style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: th.muted, marginBottom: 12 }}>Free</p>
@@ -546,17 +575,18 @@ function Landing({ dark, setDark, th, onStart }) {
             <button onClick={() => window.open("https://buy.stripe.com/eVqaEQ1v51TQ86x2dpgrS00", "_blank")} style={{ width: "100%", marginTop: 24, padding: "14px", background: "#fff", border: "none", borderRadius: 12, color: th.accent, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Start Free Trial</button>
           </div>
         </div>
+        </div>
       </div>
 
       {/* CTA */}
-      <div style={{ background: th.accentSoft, borderTop: `1px solid ${th.border}`, padding: "80px 40px", textAlign: "center" }}>
-        <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, letterSpacing: -1, marginBottom: 16 }}>Ready to be fine with your finances?</h2>
+      <div className="section-pad" style={{ background: th.accentSoft, borderTop: `1px solid ${th.border}`, textAlign: "center" }}>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(24px, 5vw, 36px)", fontWeight: 800, letterSpacing: -1, marginBottom: 16 }}>Ready to be fine with your finances?</h2>
         <p style={{ color: th.muted, fontSize: 16, marginBottom: 36 }}>Join for free today. No credit card required.</p>
         <button onClick={onStart} style={{ background: th.accent, color: "#fff", border: "none", borderRadius: 14, padding: "16px 48px", fontSize: 16, fontWeight: 700, cursor: "pointer", boxShadow: "0 8px 32px rgba(124,111,247,0.35)" }}>Get Started Free →</button>
       </div>
 
       {/* Footer */}
-      <div style={{ borderTop: `1px solid ${th.border}`, padding: "32px 60px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+      <div className="footer-inner" style={{ borderTop: `1px solid ${th.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
         <div>
           <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, color: th.accent, fontSize: 18 }}>Befined</span>
           <p style={{ color: th.muted, fontSize: 12, marginTop: 4 }}>Be fine with your finances.</p>
